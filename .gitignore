@@ -1,0 +1,6 @@
+*.pyc
+
+oriana.egg-info/
+build/
+dist/
+__pycache__/
