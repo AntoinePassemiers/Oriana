@@ -9,8 +9,8 @@ import numpy as np
 
 class Multiply(DeterministicNode):
 
-    def __init__(self, left_node, right_node):
-        DeterministicNode.__init__(self, left_node, right_node)
+    def __init__(self, left_node, right_node, **kwargs):
+        DeterministicNode.__init__(self, left_node, right_node, **kwargs)
 
     def _sample(self, left, right):
         return left * right

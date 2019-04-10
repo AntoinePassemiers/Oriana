@@ -9,8 +9,8 @@ import numpy as np
 
 class Einsum(DeterministicNode):
 
-    def __init__(self, subscripts, *nodes):
-        DeterministicNode.__init__(self, *nodes)
+    def __init__(self, subscripts, *nodes, **kwargs):
+        DeterministicNode.__init__(self, *nodes, **kwargs)
         self.subscripts = subscripts
 
     def _sample(self, *params):

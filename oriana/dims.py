@@ -50,7 +50,7 @@ class Dimensions:
         def reshape(data):
             in_shape = (n_samples_per_distrib, n_distribs, n_components)
             assert(data.shape == in_shape)
-            data = data.reshape(*(s_shape + d_shape + c_shape))
+            data = data.reshape(*(s_shape + d_shape + c_shape), order='C')
             return np.transpose(data, in_indices)
 
         return DimRelation(shape, n_samples_per_distrib,

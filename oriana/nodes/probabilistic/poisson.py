@@ -30,8 +30,7 @@ class Poisson(ProbabilisticNode):
         """
         n = self.n_samples_per_distrib
         m = self.n_distribs
-        c = self.n_components
-        out = np.empty((n, m, c), dtype=np.int)
-        out = np.random.poisson(l, size=(m, n)).T
+        params = l.flatten(order='C')
+        out = np.random.poisson(params, size=(m, n)).T
         out = out[..., np.newaxis]
         return out

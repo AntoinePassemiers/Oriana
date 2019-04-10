@@ -4,7 +4,7 @@
 
 from oriana import Dimensions, Parameter
 from oriana.nodes import Poisson, Gamma, Bernoulli
-from oriana.nodes import Einsum
+from oriana.nodes import Einsum, Multiply
 from oriana.singlecell import CountMatrix
 
 import os
@@ -31,23 +31,28 @@ if __name__ == '__main__':
     dims = Dimensions({ 'n': n, 'm': m, 'p': p, 'K': K })
 
 
-    pi_s = Parameter([0., 0., 1., 0.5, 0.5])
-    mapping = dims('m,K ~ +,-')
-    S = Bernoulli(pi_s, mapping, name='S')
+    pi_s = Parameter(np.random.rand(m))
+    S = Bernoulli(pi_s, dims('m,K ~ +,-'), name='S')
 
     alpha1 = Parameter(np.random.rand(K))
     alpha2 = Parameter(np.random.rand(K))
-    mapping = dims('n,K ~ -,+')
-    U = Gamma(alpha1, alpha2, mapping, name='U')
+    U = Gamma(alpha1, alpha2, dims('n,K ~ -,+'), name='U')
 
     beta1 = Parameter(np.random.rand(K))
     beta2 = Parameter(np.random.rand(K))
-    mapping = dims('m,K ~ -,+')
-    Vprime = Gamma(beta1, beta2, mapping, name='Vprime')
+    Vprime = Gamma(beta1, beta2, dims('m,K ~ -,+'), name='Vprime')
 
-    print(S.sample())
-    print(U.sample())
+    V = Multiply(S, Vprime)
 
-    V = Einsum('nk,mk->nmk', U, Vprime)
+    UV = Einsum('nk,mk->nmk', U, V)
+    Z = Poisson(UV, dims('n,m,K ~ +,+,+'), name='Z')
 
-    print(V.sample())
+    print('\nModel summary')
+    print('-------------\n')
+    print(S)
+    print(U)
+    print(Vprime)
+    print(Z)
+    print()
+
+    print(Z.sample()[0])

@@ -26,8 +26,8 @@ class Gamma(ProbabilisticNode):
         m = self.n_distribs
         c = self.n_components
         out = np.empty((n, m, c), dtype=np.int)
-        shape_params = alpha
-        scale_params = 1. / beta
+        shape_params = alpha.flatten(order='C')
+        scale_params = 1. / beta.flatten(order='C')
         out = np.random.gamma(shape_params, scale_params, size=(m, n)).T
         out = out[..., np.newaxis]
         return out

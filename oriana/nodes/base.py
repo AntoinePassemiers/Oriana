@@ -8,6 +8,17 @@ from abc import ABCMeta, abstractmethod
 
 class Node(metaclass=ABCMeta):
 
+    def __init__(self, *parents):
+        self.children = list()
+        self.parents = parents
+        for parent in self.parents:
+            if isinstance(parent, Node):
+                parent.add_child(self)
+
+    def add_child(self, node):
+        if not node in self.children:
+            self.children.append(node)
+
     @abstractmethod
     def sample(self, **kwargs):
         pass
@@ -16,7 +27,7 @@ class Node(metaclass=ABCMeta):
 class DeterministicNode(Node, metaclass=ABCMeta):
 
     def __init__(self, *parents):
-        self.parents = parents
+        Node.__init__(self, *parents)
 
     def sample(self, **kwargs):
         params = list()
@@ -36,7 +47,7 @@ class DeterministicNode(Node, metaclass=ABCMeta):
 class ProbabilisticNode(Node, metaclass=ABCMeta):
 
     def __init__(self, *parents, rel='', name=''):
-        self.params = list(parents)
+        Node.__init__(self, *parents)
         self.name = name
         self.shape = rel.shape
         self.n_samples_per_distrib = rel.n_samples_per_distrib
@@ -48,7 +59,7 @@ class ProbabilisticNode(Node, metaclass=ABCMeta):
     def sample(self, **kwargs):
         # TODO: reshape params
         arr_params = list()
-        for param in self.params:
+        for param in self.parents:
             if isinstance(param, Node):
                 arr_params.append(param.sample())
             else:
