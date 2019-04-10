@@ -2,5 +2,11 @@
 # exceptions.py
 # author : Antoine Passemiers
 
-class DatatypeException:
+
+class DatatypeException(Exception):
     pass
+
+
+class IncompatibleShapeException(Exception):
+    pass
+
