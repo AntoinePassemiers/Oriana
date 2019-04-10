@@ -6,32 +6,54 @@ import numpy as np
 from abc import ABCMeta, abstractmethod
 
 
-class Node:
+class Node(metaclass=ABCMeta):
 
-    pass
+    @abstractmethod
+    def sample(self, **kwargs):
+        pass
 
 
-class DeterministicNode(Node):
+class DeterministicNode(Node, metaclass=ABCMeta):
 
-    pass
+    def __init__(self, *parents):
+        self.parents = parents
+
+    def sample(self, **kwargs):
+        params = list()
+        for param in self.parents:
+            if isinstance(param, Node):
+                params.append(param.sample())
+            else:
+                params.append(param.asarray())
+        out = self._sample(*params, **kwargs)
+        return out
+
+    @abstractmethod
+    def _sample(self, params):
+        pass
 
 
 class ProbabilisticNode(Node, metaclass=ABCMeta):
 
-    def __init__(self, params, rel, name=''):
-        self.params = params
-        self.rel = rel
+    def __init__(self, *parents, rel='', name=''):
+        self.params = list(parents)
         self.name = name
-        self.shape = rel[0]
-        self.n_samples_per_distrib = rel[1]
-        self.n_distribs = rel[2]
-        self.n_components = rel[3]
-        self.reshape_func = rel[4]
+        self.shape = rel.shape
+        self.n_samples_per_distrib = rel.n_samples_per_distrib
+        self.n_distribs = rel.n_distribs
+        self.n_components = rel.n_components
+        self.reshape_func = rel.reshape_func
         self.__buffer = self._init_buffer(self.shape)
 
-    def sample(self, *args, **kwargs):
-        params = self.params.asarray()
-        out = self._sample(params, **kwargs)
+    def sample(self, **kwargs):
+        # TODO: reshape params
+        arr_params = list()
+        for param in self.params:
+            if isinstance(param, Node):
+                arr_params.append(param.sample())
+            else:
+                arr_params.append(param.asarray())
+        out = self._sample(*arr_params, **kwargs)
 
         n = self.n_samples_per_distrib
         m = self.n_distribs

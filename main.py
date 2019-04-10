@@ -35,17 +35,19 @@ if __name__ == '__main__':
     mapping = dims('m,K ~ +,-')
     S = Bernoulli(pi_s, mapping, name='S')
 
-    alpha = Parameter(np.random.rand(K, 2))
+    alpha1 = Parameter(np.random.rand(K))
+    alpha2 = Parameter(np.random.rand(K))
     mapping = dims('n,K ~ -,+')
-    U = Gamma(alpha, mapping, name='U')
+    U = Gamma(alpha1, alpha2, mapping, name='U')
 
-    beta = Parameter(np.random.rand(K, 2))
+    beta1 = Parameter(np.random.rand(K))
+    beta2 = Parameter(np.random.rand(K))
     mapping = dims('m,K ~ -,+')
-    Vprime = Gamma(beta, mapping, name='Vprime')
+    Vprime = Gamma(beta1, beta2, mapping, name='Vprime')
 
     print(S.sample())
     print(U.sample())
 
-    V = Einsum('nk,mk->nmk', [U, Vprime])
+    V = Einsum('nk,mk->nmk', U, Vprime)
 
     print(V.sample())

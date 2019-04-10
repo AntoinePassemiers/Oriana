@@ -8,6 +8,17 @@ import numpy as np
 from functools import reduce
 
 
+class DimRelation:
+
+    def __init__(self, shape, n_samples_per_distrib,
+                 n_distribs, n_components, reshape_func):
+        self.shape = shape
+        self.n_samples_per_distrib = n_samples_per_distrib
+        self.n_distribs = n_distribs
+        self.n_components = n_components
+        self.reshape_func = reshape_func
+
+
 class Dimensions:
 
     def __init__(self, dims):
@@ -42,7 +53,8 @@ class Dimensions:
             data = data.reshape(*(s_shape + d_shape + c_shape))
             return np.transpose(data, in_indices)
 
-        return shape, n_samples_per_distrib, n_distribs, n_components, reshape
+        return DimRelation(shape, n_samples_per_distrib,
+                           n_distribs, n_components, reshape)
 
     def __setitem__(self, key, value):
         self.dims[key, value]
