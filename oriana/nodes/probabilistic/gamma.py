@@ -5,6 +5,7 @@
 from oriana.nodes.base import ProbabilisticNode
 
 import numpy as np
+import scipy.stats
 
 
 class Gamma(ProbabilisticNode):
@@ -31,3 +32,9 @@ class Gamma(ProbabilisticNode):
         out = np.random.gamma(shape_params, scale_params, size=(m, n)).T
         out = out[..., np.newaxis]
         return out
+
+    def _logpdfs(self, samples, alpha, beta):
+        shape_params = alpha.flatten(order='C')
+        scale_params = 1. / beta.flatten(order='C')
+        return scipy.stats.gamma.logpdf(
+                samples, shape_params, scale=scale_params)

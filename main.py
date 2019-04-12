@@ -47,6 +47,8 @@ if __name__ == '__main__':
     UV = Einsum('nk,mk->nmk', U, V)
     Z = Poisson(UV, dims('n,m,K ~ +,+,+'), name='Z')
 
+    X = Einsum('nmk->nm', Z)
+
     print('\nModel summary')
     print('-------------\n')
     print(S)
@@ -55,4 +57,8 @@ if __name__ == '__main__':
     print(Z)
     print()
 
-    print(Z.sample()[0])
+    X.sample(recursive=True)
+    X.unfix(recursive=True)
+
+    print('Log-likelihood of matrix S: %f' % S.logp())
+    print('Log-likelihood of matrix U: %f' % U.logp())

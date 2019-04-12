@@ -11,12 +11,14 @@ from functools import reduce
 class DimRelation:
 
     def __init__(self, shape, n_samples_per_distrib,
-                 n_distribs, n_components, reshape_func):
+                 n_distribs, n_components, reshape_func,
+                 inv_reshape_func):
         self.shape = shape
         self.n_samples_per_distrib = n_samples_per_distrib
         self.n_distribs = n_distribs
         self.n_components = n_components
         self.reshape_func = reshape_func
+        self.inv_reshape_func = inv_reshape_func
 
 
 class Dimensions:
@@ -47,14 +49,22 @@ class Dimensions:
         c_shape = [self.dims[lhs[i]] for i in c_indices]
         n_components = reduce(mul, [1] + c_shape)
 
+        in_shape = (n_samples_per_distrib, n_distribs, n_components)
+        out_shape = tuple(s_shape + d_shape + c_shape)
+
         def reshape(data):
-            in_shape = (n_samples_per_distrib, n_distribs, n_components)
             assert(data.shape == in_shape)
-            data = data.reshape(*(s_shape + d_shape + c_shape), order='C')
+            data = data.reshape(*out_shape, order='C')
             return np.transpose(data, in_indices)
 
+        def inv_reshape(data):
+            assert(data.shape == shape)
+            inv_in_indices = [in_indices.index(i) for i in range(len(in_indices))]
+            data = np.transpose(data, inv_in_indices)
+            return data.reshape(*in_shape, order='C')
+
         return DimRelation(shape, n_samples_per_distrib,
-                           n_distribs, n_components, reshape)
+                           n_distribs, n_components, reshape, inv_reshape)
 
     def __setitem__(self, key, value):
         self.dims[key, value]

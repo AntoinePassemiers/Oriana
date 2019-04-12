@@ -5,6 +5,7 @@
 from oriana.nodes.base import ProbabilisticNode
 
 import numpy as np
+import scipy.stats
 
 
 class Poisson(ProbabilisticNode):
@@ -34,3 +35,7 @@ class Poisson(ProbabilisticNode):
         out = np.random.poisson(params, size=(m, n)).T
         out = out[..., np.newaxis]
         return out
+
+    def _logpdfs(self, samples, l):
+        params = l.flatten(order='C')
+        return scipy.stats.bernoulli.logpmf(samples, params)

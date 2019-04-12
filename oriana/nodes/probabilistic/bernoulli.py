@@ -5,6 +5,7 @@
 from oriana.nodes.base import ProbabilisticNode
 
 import numpy as np
+import scipy.stats
 
 
 class Bernoulli(ProbabilisticNode):
@@ -35,3 +36,8 @@ class Bernoulli(ProbabilisticNode):
         out = np.random.binomial(ones, params, size=(m, n)).T
         out = out[..., np.newaxis]
         return out
+
+    def _logpdfs(self, samples, pi):
+        params = pi.flatten(order='C')
+        return scipy.stats.bernoulli.logpmf(samples, params)
+
