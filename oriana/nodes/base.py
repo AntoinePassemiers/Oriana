@@ -46,6 +46,12 @@ class Node(metaclass=ABCMeta):
     def asarray(self):
         return np.asarray(self.buffer)
 
+    def __setitem__(self, key, value):
+        self._buffer[key] = value
+
+    def __getitem__(self, key):
+        return self._buffer[key]
+
 
 class DeterministicNode(Node, metaclass=ABCMeta):
 
@@ -98,11 +104,10 @@ class ProbabilisticNode(Node, metaclass=ABCMeta):
 
         arr_params = list()
         for param in self.parents:
-            if isinstance(param, Node) and recursive:
-                param.sample(recursive=recursive)
             arr_params.append(param.asarray())
 
-        return self._logpdfs(samples, *arr_params)
+        pdfs = self._logpdfs(samples, *arr_params)
+        return np.nan_to_num(pdfs)
 
     def logp(self):
         return self.logpdfs().sum()

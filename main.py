@@ -16,6 +16,29 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 DATA_FOLDER = os.path.join(ROOT, 'data')
 
 
+
+def reconstruction_deviance(X, U, V, dims):
+    U.fix(); V.fix()
+
+    # Set Lambda = U.V^T
+    Lambda = Einsum('nk,mk->nm', U, V)
+    Lambda.forward() 
+
+    # Compute p(X | Lambda = U.V^T)
+    X_hat = Poisson(Lambda, dims('n,m ~ +,+'))
+    logp_reconstructed = X_hat.logp()
+
+    # Set Lambda = X
+    Lambda[:] = X[:] # Set Lambda = X
+
+    # Compute p(X | Lambda = X)
+    logp = X_hat.logp()
+
+    U.unfix(); V.unfix()
+
+    return -2 * (logp_reconstructed - logp)
+
+
 if __name__ == '__main__':
     """
     filepath = os.path.join(DATA_FOLDER, 'llorens.csv')
@@ -55,10 +78,14 @@ if __name__ == '__main__':
     print(U)
     print(Vprime)
     print(Z)
-    print()
+    print('')
 
     X.sample(recursive=True)
     X.unfix(recursive=True)
 
     print('Log-likelihood of matrix S: %f' % S.logp())
     print('Log-likelihood of matrix U: %f' % U.logp())
+    print('')
+
+    divergence = reconstruction_deviance(X, U, V, dims)
+    print('Bregman divergence: %f' % divergence)

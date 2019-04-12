@@ -38,4 +38,4 @@ class Poisson(ProbabilisticNode):
 
     def _logpdfs(self, samples, l):
         params = l.flatten(order='C')
-        return scipy.stats.bernoulli.logpmf(samples, params)
+        return scipy.stats.poisson.logpmf(samples, params)
