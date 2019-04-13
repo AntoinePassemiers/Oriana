@@ -25,7 +25,7 @@ def reconstruction_deviance(X, U, V, dims):
     Lambda.forward() 
 
     # Compute p(X | Lambda = U.V^T)
-    X_hat = Poisson(Lambda, dims('n,m ~ +,+'))
+    X_hat = Poisson(Lambda, dims('n,m ~ d,d'))
     logp_reconstructed = X_hat.logp()
 
     # Set Lambda = X
@@ -50,25 +50,25 @@ if __name__ == '__main__':
 
     n = 10
     m = p = 5
-    K = 3
-    dims = Dimensions({ 'n': n, 'm': m, 'p': p, 'K': K })
+    k = 3
+    dims = Dimensions({ 'n': n, 'm': m, 'p': p, 'k': k })
 
 
     pi_s = Parameter(np.random.rand(m))
-    S = Bernoulli(pi_s, dims('m,K ~ +,-'), name='S')
+    S = Bernoulli(pi_s, dims('m,k ~ d,s'), name='S')
 
-    alpha1 = Parameter(np.random.rand(K))
-    alpha2 = Parameter(np.random.rand(K))
-    U = Gamma(alpha1, alpha2, dims('n,K ~ -,+'), name='U')
+    alpha1 = Parameter(np.random.rand(k))
+    alpha2 = Parameter(np.random.rand(k))
+    U = Gamma(alpha1, alpha2, dims('n,k ~ s,d'), name='U')
 
-    beta1 = Parameter(np.random.rand(K))
-    beta2 = Parameter(np.random.rand(K))
-    Vprime = Gamma(beta1, beta2, dims('m,K ~ -,+'), name='Vprime')
+    beta1 = Parameter(np.random.rand(k))
+    beta2 = Parameter(np.random.rand(k))
+    Vprime = Gamma(beta1, beta2, dims('m,k ~ s,d'), name='Vprime')
 
     V = Multiply(S, Vprime)
 
     UV = Einsum('nk,mk->nmk', U, V)
-    Z = Poisson(UV, dims('n,m,K ~ +,+,+'), name='Z')
+    Z = Poisson(UV, dims('n,m,k ~ d,d,d'), name='Z')
 
     X = Einsum('nmk->nm', Z)
 

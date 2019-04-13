@@ -17,22 +17,37 @@ class Poisson(ProbabilisticNode):
     """
 
     def __init__(self, l, rel, **kwargs):
+        """Constructs a Poisson node.
+        
+        Parameters:
+            l (object): Node or Parameter object representing
+                the average number of event occurences in a fixed
+                interval of time.
+        """
         ProbabilisticNode.__init__(self, l, rel=rel, **kwargs)
 
     def _init_buffer(self, shape):
+        """Initializes an empty buffer of integer values.
+
+        Parameters:
+            shape (tuple): Buffer shape.
+
+        Todo:
+            * Handle sparse arrays
+        """
         return np.zeros(shape, dtype=np.int)
 
     def _sample(self, l):
         """
         Parameters:
-            l (object): Poisson lambda parameter, or the number
-                of event occurences in a fixed interval of time.
+            l (object): Poisson lambda parameter, or the average
+                number of event occurences in a fixed interval of time.
                 Can be either a Parameter or a Node object.
         """
         n = self.n_samples_per_distrib
         m = self.n_distribs
         params = l.flatten(order='C')
-        out = np.random.poisson(params, size=(m, n)).T
+        out = np.random.poisson(params, size=(n, m))
         out = out[..., np.newaxis]
         return out
 

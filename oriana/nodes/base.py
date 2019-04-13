@@ -86,6 +86,7 @@ class ProbabilisticNode(Node, metaclass=ABCMeta):
 
     def __init__(self, *parents, rel='', name=''):
         Node.__init__(self, *parents)
+        print(name, rel)
         self.name = name
         self.shape = rel.shape
         self.n_samples_per_distrib = rel.n_samples_per_distrib

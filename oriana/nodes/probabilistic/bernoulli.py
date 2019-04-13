@@ -33,7 +33,7 @@ class Bernoulli(ProbabilisticNode):
         m = self.n_distribs
         params = pi.flatten(order='C')
         ones = np.ones(len(pi), dtype=np.int)
-        out = np.random.binomial(ones, params, size=(m, n)).T
+        out = np.random.binomial(ones, params, size=(n, m))
         out = out[..., np.newaxis]
         return out
 
