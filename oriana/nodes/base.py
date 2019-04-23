@@ -88,6 +88,7 @@ class ProbabilisticNode(Node, metaclass=ABCMeta):
         Node.__init__(self, *parents)
         print(name, rel)
         self.name = name
+        self.rel = rel
         self.shape = rel.shape
         self.n_samples_per_distrib = rel.n_samples_per_distrib
         self.n_distribs = rel.n_distribs
@@ -121,7 +122,7 @@ class ProbabilisticNode(Node, metaclass=ABCMeta):
             arr_params.append(param.asarray())
 
         if not self.fixed:
-            out = self._sample(*arr_params)
+            out = self._sample(*arr_params) 
             n = self.n_samples_per_distrib
             m = self.n_distribs
             c = self.n_components
@@ -147,3 +148,18 @@ class ProbabilisticNode(Node, metaclass=ABCMeta):
     @abstractmethod
     def _logpdfs(self, samples, *params):
         pass
+
+    def __getitem__(self, key):
+        return self._buffer[key]
+
+    def __setitem__(self, key, value):
+        self._buffer[key] = value
+
+    @property
+    def buffer(self):
+        return self._buffer
+    
+    @buffer.setter
+    def buffer(self, data):
+        self._buffer = data
+

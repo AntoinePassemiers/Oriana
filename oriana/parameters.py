@@ -8,7 +8,21 @@ import numpy as np
 class Parameter:
 
     def __init__(self, data):
-        self.data = np.asarray(data)
+        self._buffer = np.asarray(data)
 
     def asarray(self):
-        return self.data
+        return self._buffer
+
+    def __getitem__(self, key):
+        return self._buffer[key]
+
+    def __setitem__(self, key, value):
+        self._buffer[key] = value
+
+    @property
+    def buffer(self):
+        return self._buffer
+    
+    @buffer.setter
+    def buffer(self, data):
+        self._buffer = data

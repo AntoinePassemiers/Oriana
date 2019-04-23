@@ -27,14 +27,14 @@ class Gamma(ProbabilisticNode):
         m = self.n_distribs
         c = self.n_components
         out = np.empty((n, m, c), dtype=np.int)
-        shape_params = alpha.flatten(order='C')
-        scale_params = 1. / beta.flatten(order='C')
+        shape_params = alpha.reshape(-1, order='C')
+        scale_params = 1. / beta.reshape(-1, order='C')
         out = np.random.gamma(shape_params, scale_params, size=(n, m))
         out = out[..., np.newaxis]
         return out
 
     def _logpdfs(self, samples, alpha, beta):
-        shape_params = alpha.flatten(order='C')
-        scale_params = 1. / beta.flatten(order='C')
+        shape_params = alpha.reshape(-1, order='C')
+        scale_params = 1. / beta.reshape(-1, order='C')
         return scipy.stats.gamma.logpdf(
                 samples, shape_params, scale=scale_params)

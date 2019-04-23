@@ -31,13 +31,13 @@ class Bernoulli(ProbabilisticNode):
         """
         n = self.n_samples_per_distrib
         m = self.n_distribs
-        params = pi.flatten(order='C')
+        params = pi.reshape(-1, order='C')
         ones = np.ones(len(pi), dtype=np.int)
         out = np.random.binomial(ones, params, size=(n, m))
         out = out[..., np.newaxis]
         return out
 
     def _logpdfs(self, samples, pi):
-        params = pi.flatten(order='C')
+        params = pi.reshape(-1, order='C')
         return scipy.stats.bernoulli.logpmf(samples, params)
 

@@ -3,8 +3,9 @@
 # author : Antoine Passemiers
 
 from oriana import Dimensions, Parameter
-from oriana.nodes import Poisson, Gamma, Bernoulli
-from oriana.nodes import Einsum, Multiply
+from oriana.nodes import Poisson, Gamma, Bernoulli, Multinomial
+from oriana.nodes import Einsum, Multiply, Transpose
+from oriana.inference import VariationalDistribution
 from oriana.singlecell import CountMatrix
 
 import os
@@ -80,12 +81,31 @@ if __name__ == '__main__':
     print(Z)
     print('')
 
-    X.sample(recursive=True)
-    X.unfix(recursive=True)
 
-    print('Log-likelihood of matrix S: %f' % S.logp())
-    print('Log-likelihood of matrix U: %f' % U.logp())
-    print('')
+    X.sample(recursive=True)
+
+    print(X.buffer)
+
+    rho = np.random.rand(n, m, k)
+    rho = Parameter(rho / rho.sum(axis=2)[..., None])
+    Zq = Multinomial(X, rho, dims('n,m,k ~ d,d,c'))
+    Zq.sample()
+
+    #print(Zq.buffer)
+    print(Zq.buffer.shape)
+
+    print(Zq.logpdfs().shape)
+
+
+    """
+    q = VariationalDistribution()
+    q.add_partition(U, )
+
+    q.add_partition(Z, madafack)
+
+    Dq = VariationalDistribution(D)
+    Vq = VariationalDistribution    
+    """
 
     divergence = reconstruction_deviance(X, U, V, dims)
     print('Bregman divergence: %f' % divergence)

@@ -46,11 +46,11 @@ class Poisson(ProbabilisticNode):
         """
         n = self.n_samples_per_distrib
         m = self.n_distribs
-        params = l.flatten(order='C')
+        params = l.reshape(-1, order='C')
         out = np.random.poisson(params, size=(n, m))
         out = out[..., np.newaxis]
         return out
 
     def _logpdfs(self, samples, l):
-        params = l.flatten(order='C')
+        params = l.reshape(-1, order='C')
         return scipy.stats.poisson.logpmf(samples, params)
