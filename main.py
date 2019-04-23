@@ -19,25 +19,15 @@ DATA_FOLDER = os.path.join(ROOT, 'data')
 
 
 def reconstruction_deviance(X, U, V, dims):
-    U.fix(); V.fix()
+    X, U, V = X.buffer, U.buffer, V.buffer
+    Lambda = np.dot(U, V.T)
 
-    # Set Lambda = U.V^T
-    Lambda = Einsum('nk,mk->nm', U, V)
-    Lambda.forward() 
+    A = np.empty_like(X)
+    valid = (X != 0)
+    A[~valid] = 0
+    A[valid] = X[valid] * np.log(X[valid] / Lambda[valid])
 
-    # Compute p(X | Lambda = U.V^T)
-    X_hat = Poisson(Lambda, dims('n,m ~ d,d'))
-    logp_reconstructed = X_hat.logp()
-
-    # Set Lambda = X
-    Lambda[:] = X[:] # Set Lambda = X
-
-    # Compute p(X | Lambda = X)
-    logp = X_hat.logp()
-
-    U.unfix(); V.unfix()
-
-    return -2 * (logp_reconstructed - logp)
+    return (A - X + Lambda).sum()
 
 
 if __name__ == '__main__':
