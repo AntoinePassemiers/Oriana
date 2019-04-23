@@ -52,6 +52,14 @@ class Node(metaclass=ABCMeta):
     def __getitem__(self, key):
         return self._buffer[key]
 
+    @property
+    def buffer(self):
+        return self._buffer
+    
+    @buffer.setter
+    def buffer(self, data):
+        self._buffer = data
+
 
 class DeterministicNode(Node, metaclass=ABCMeta):
 
@@ -86,7 +94,6 @@ class ProbabilisticNode(Node, metaclass=ABCMeta):
 
     def __init__(self, *parents, rel='', name=''):
         Node.__init__(self, *parents)
-        print(name, rel)
         self.name = name
         self.rel = rel
         self.shape = rel.shape
@@ -114,28 +121,36 @@ class ProbabilisticNode(Node, metaclass=ABCMeta):
     def logp(self):
         return self.logpdfs().sum()
 
-    def sample(self, recursive=False):
-        arr_params = list()
-        for param in self.parents:
-            if isinstance(param, Node) and recursive:
-                param.sample(recursive=recursive)
-            arr_params.append(param.asarray())
+    def updates_buffer(func):
+        def new_func(self, recursive=False):
+            arr_params = list()
+            for param in self.parents:
+                if isinstance(param, Node) and recursive:
+                    param.sample(recursive=recursive)
+                arr_params.append(param.asarray())
 
-        if not self.fixed:
-            out = self._sample(*arr_params) 
-            n = self.n_samples_per_distrib
-            m = self.n_distribs
-            c = self.n_components
-            assert(out.shape == (n, m, c))
-            out = self.reshape_func(out)
-            self._buffer[:] = out
-        else:
-            out = self._buffer
-        self.fix()
-        return out
+            if not self.fixed:
+                out = func(self, *arr_params) 
+                n = self.n_samples_per_distrib
+                m = self.n_distribs
+                c = self.n_components
+                assert(out.shape == (n, m, c))
+                out = self.reshape_func(out)
+                self._buffer[:] = out
+            else:
+                out = self._buffer
+            self.fix()
+            return out
+        new_func.__name__ = func.__name__
+        return new_func
 
-    def __repr__(self):
-        return 'Variable %s of shape %s' % (self.name, str(self.shape))
+    @updates_buffer
+    def sample(self, *params):
+        return self._sample(*params)
+
+    @updates_buffer
+    def mean(self, *params):
+        return self._mean(*params)
 
     @abstractmethod
     def _init_buffer(self, shape):
@@ -146,20 +161,12 @@ class ProbabilisticNode(Node, metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def _mean(self, *params):
+        pass
+        
+    @abstractmethod
     def _logpdfs(self, samples, *params):
         pass
 
-    def __getitem__(self, key):
-        return self._buffer[key]
-
-    def __setitem__(self, key, value):
-        self._buffer[key] = value
-
-    @property
-    def buffer(self):
-        return self._buffer
-    
-    @buffer.setter
-    def buffer(self, data):
-        self._buffer = data
-
+    def __repr__(self):
+        return 'Variable %s of shape %s' % (self.name, str(self.shape))

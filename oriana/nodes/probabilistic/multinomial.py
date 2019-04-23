@@ -34,6 +34,20 @@ class Multinomial(ProbabilisticNode):
             out[:, i, :] = np.random.multinomial(n[i], p[i, :], size=_n)
         return out
 
+    def _mean(self, n, p):
+        _n = self.n_samples_per_distrib
+        _m = self.n_distribs
+        _c = self.n_components
+        out = np.empty((_n, _m, _c), dtype=np.int)
+        
+        n = n.reshape(_m, order='C')
+        p = p.reshape((_m, _c), order='C')
+        p /= p.sum(axis=1)[..., None]
+        p *= n[..., None]
+        for i in range(_n):
+            out[i, :, :] = p
+        return out
+
     def _logpdfs(self, samples, n, p):
         _n = self.n_samples_per_distrib
         _m = self.n_distribs

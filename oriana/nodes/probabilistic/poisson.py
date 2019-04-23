@@ -51,6 +51,15 @@ class Poisson(ProbabilisticNode):
         out = out[..., np.newaxis]
         return out
 
+    def _mean(self, l):
+        _n = self.n_samples_per_distrib
+        _m = self.n_distribs
+        _c = self.n_components
+        l = l.reshape(-1, order='C')
+        out = np.tile(l, (_n, 1))[..., np.newaxis]
+        assert(out.shape == (_n, _m, _c))
+        return out
+
     def _logpdfs(self, samples, l):
         params = l.reshape(-1, order='C')
         return scipy.stats.poisson.logpmf(samples, params)

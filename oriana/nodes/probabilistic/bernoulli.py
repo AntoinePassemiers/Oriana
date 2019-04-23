@@ -37,6 +37,15 @@ class Bernoulli(ProbabilisticNode):
         out = out[..., np.newaxis]
         return out
 
+    def _mean(self, pi):
+        _n = self.n_samples_per_distrib
+        _m = self.n_distribs
+        _c = self.n_components
+        pi = pi.reshape(-1, order='C')
+        out = np.tile(pi, (_n, 1))[..., np.newaxis]
+        assert(out.shape == (_n, _m, _c))
+        return out
+
     def _logpdfs(self, samples, pi):
         params = pi.reshape(-1, order='C')
         return scipy.stats.bernoulli.logpmf(samples, params)
