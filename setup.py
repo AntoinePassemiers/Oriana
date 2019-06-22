@@ -13,9 +13,8 @@ setup(
     url='https://github.com/AntoinePassemiers/Oriana',
     author='Antoine Passemiers, Robin Petit',
     author_email='apassemi@ulb.ac.be',
-    packages=['oriana'],
+    packages=['oriana', 'oriana.nodes', 'oriana.nodes.deterministic', 'oriana.nodes.probabilistic'],
     include_package_data=False,
-    pymodules=['oriana'],
     install_requires=[
         'numpy >= 1.13.3',
         'scipy >= 1.1.0'])

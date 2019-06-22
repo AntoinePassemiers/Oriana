@@ -38,15 +38,17 @@ class Multinomial(ProbabilisticNode):
         _n = self.n_samples_per_distrib
         _m = self.n_distribs
         _c = self.n_components
-        out = np.empty((_n, _m, _c), dtype=np.int)
+        out = np.empty((_n, _m, _c), dtype=np.float)
         
         n = n.reshape(_m, order='C')
         p = p.reshape((_m, _c), order='C')
 
-        p_Z = p.sum(axis=1)[..., None]
-        print(p.shape, p_Z.shape)
+        p_Z = p.sum(axis=1)[..., np.newaxis]
         p[p_Z[:, 0] > 0, :] /= p_Z[p_Z[:, 0] > 0]
-        p *= n[..., None]
+        print(p)
+        print(n[..., np.newaxis])
+        p *= n[..., np.newaxis]
+        print(p)
         for i in range(_n):
             out[i, :, :] = p
         return out
@@ -61,5 +63,5 @@ class Multinomial(ProbabilisticNode):
         out = np.empty((_n, _m), dtype=np.float)
         for i in range(_m):
             out[:, i] = scipy.stats.multinomial.logpmf(
-                samples[:, i, :], n=n[i], p=p[i])
+                    samples[:, i, :], n=n[i], p=p[i])
         return out

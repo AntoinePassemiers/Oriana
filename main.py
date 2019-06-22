@@ -23,8 +23,6 @@ DATA_FOLDER = os.path.join(ROOT, 'data')
 def reconstruction_deviance(X, U, V):
     Lambda = np.dot(U, V.T)
 
-    print(U)
-
     A = np.empty_like(X)
     valid = (X != 0)
     A[~valid] = 0
@@ -67,7 +65,6 @@ if __name__ == '__main__':
 
     pi_d = Parameter(np.random.rand(p))
     D = Bernoulli(pi_d, dims('n,p ~ s,d'), name='D')
-    # TODO: what to do with D then?
 
     alpha1 = Parameter(np.random.gamma(2., size=k))
     alpha2 = Parameter(np.ones(k))
@@ -152,6 +149,7 @@ if __name__ == '__main__':
         divergence = reconstruction_deviance(X.asarray(), U_hat, V_hat)
         history.append(divergence)
         print('Iteration %i - Bregman divergence: %f' % (iteration + 1, divergence))
+
 
         ####################
         # Stationary point #
