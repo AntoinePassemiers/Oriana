@@ -139,7 +139,6 @@ class ProbabilisticNode(Node, metaclass=ABCMeta):
                 self._buffer[:] = out
             else:
                 out = self._buffer
-            self.fix()
             return out
         new_func.__name__ = func.__name__
         return new_func

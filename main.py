@@ -106,7 +106,7 @@ if __name__ == '__main__':
     Z_q = Multinomial(X, r, dims('n,m,k ~ d,d,c'))
     q.add_partition(Z, Z_q)
 
-    tau = 0.5
+    tau = 0.5 # TODO
     p_s = Parameter(np.full((m, k), tau))
     S_q = Bernoulli(p_s, dims('m,k ~ d,d'))
     q.add_partition(S, S_q)
@@ -146,6 +146,8 @@ if __name__ == '__main__':
         Vprime_hat = Vprime.mean()
 
         print(a1[:] / a2[:])
+        print(U_hat)
+
 
         divergence = reconstruction_deviance(X.asarray(), U_hat, Vprime_hat) # TODO
         print('Iteration %i - Bregman divergence: %f' % (iteration + 1, divergence))
