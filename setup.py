@@ -2,8 +2,12 @@
 # setup.py
 # author : Antoine Passemiers
 
-from setuptools import setup
+import os
+from setuptools import setup, find_packages
 
+
+datafiles = [(d, [os.path.join(d, f) for f in files]) \
+        for d, folders, files in os.walk('data')]
 
 setup(
     name='oriana',
@@ -12,4 +16,11 @@ setup(
     url='https://github.com/AntoinePassemiers/Oriana',
     author='Antoine Passemiers, Robin Petit',
     author_email='apassemi@ulb.ac.be',
-    packages=['oriana'])
+    packages=['oriana'],
+    include_package_data=True,
+    package_dir={ '': 'oriana' },
+    pymodules=['oriana'],
+    data_files=datafiles,
+    install_requires=[
+        'numpy >= 1.13.3',
+        'scipy >= 1.1.0'])
