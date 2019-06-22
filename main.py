@@ -194,10 +194,10 @@ if __name__ == '__main__':
         beta2[:] = beta1[:] / np.mean(Vprime_hat, axis=0)
 
         # For numerical purposes
-        alpha2[:] = np.maximum(alpha2[:], 1e-15)
-        beta2[:] = np.maximum(beta2[:], 1e-15)
-        alpha1[:] = np.maximum(alpha1[:], 1e-15)
-        beta1[:] = np.maximum(beta1[:], 1e-15)
+        #alpha2[:] = np.maximum(alpha2[:], 1e-15)
+        #beta2[:] = np.maximum(beta2[:], 1e-15)
+        #alpha1[:] = np.maximum(alpha1[:], 1e-15)
+        #beta1[:] = np.maximum(beta1[:], 1e-15)
 
         print(alpha2[:])
 
