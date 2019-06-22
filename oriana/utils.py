@@ -7,6 +7,7 @@ import scipy.special
 
 
 def logit(x):
+    x = np.clip(x, 1e-15, 1. - 1e-15) # TODO
     return np.log(x / (1. - x))
 
 
@@ -26,7 +27,7 @@ def inverse_digamma(y):
     """Vectorized implementation of the inverse digamma
     method proposed by T. Minka.
 
-    Reference:
+    References:
         Estimating a Dirichlet distribution
         Thomas P. Minka
         2000; revised 2003, 2009, 2012

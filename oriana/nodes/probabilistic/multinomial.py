@@ -42,7 +42,10 @@ class Multinomial(ProbabilisticNode):
         
         n = n.reshape(_m, order='C')
         p = p.reshape((_m, _c), order='C')
-        p /= p.sum(axis=1)[..., None]
+
+        p_Z = p.sum(axis=1)[..., None]
+        print(p.shape, p_Z.shape)
+        p[p_Z[:, 0] > 0, :] /= p_Z[p_Z[:, 0] > 0]
         p *= n[..., None]
         for i in range(_n):
             out[i, :, :] = p

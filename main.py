@@ -34,11 +34,11 @@ def reconstruction_deviance(X, U, V):
 
 if __name__ == '__main__':
 
-    """
-    filepath = os.path.join(DATA_FOLDER, 'llorens.csv')
-    counts = CountMatrix.from_csv(filepath).T.as_array()
-    print('Shape of X: %s' % str(counts.shape))
-    """
+
+    #filepath = os.path.join(DATA_FOLDER, 'llorens.csv')
+    #counts = CountMatrix.from_csv(filepath).T.as_array()
+    #print('Shape of X: %s' % str(counts.shape))
+
 
     # TODO: parse it from csv file
     # once everything works
@@ -53,7 +53,6 @@ if __name__ == '__main__':
                  [ 6,  1, 12,  5,  2],
                  [ 6,  0,  0,  6,  0],
                  [ 9,  0,  7, 23,  0]])
-
 
     n, m = counts.shape[0], counts.shape[1]
     p = m # TODO: ??
@@ -139,17 +138,15 @@ if __name__ == '__main__':
     pi_s[:] = np.mean(p_s[:], axis=1)
 
 
+    history = list()
 
-    for iteration in range(10):
+    for iteration in range(100):
 
         U_hat = U_q.mean()
         Vprime_hat = Vprime.mean()
 
-        print(a1[:] / a2[:])
-        print(U_hat)
-
-
         divergence = reconstruction_deviance(X.asarray(), U_hat, Vprime_hat) # TODO
+        history.append(divergence)
         print('Iteration %i - Bregman divergence: %f' % (iteration + 1, divergence))
 
         ####################
@@ -198,6 +195,13 @@ if __name__ == '__main__':
         # For numerical purposes
         alpha2[:] = np.maximum(alpha2[:], 1e-15)
         beta2[:] = np.maximum(beta2[:], 1e-15)
+        alpha1[:] = np.maximum(alpha1[:], 1e-15)
+        beta1[:] = np.maximum(beta1[:], 1e-15)
 
         pi_d[:] = np.mean(p_d[:], axis=0)
         pi_s[:] = np.mean(p_s[:], axis=1)
+
+    plt.plot(history)
+    plt.ylabel('Bregman divergence')
+    plt.xlabel('Variational E-M iterations')
+    plt.show()
