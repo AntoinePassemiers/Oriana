@@ -23,6 +23,8 @@ DATA_FOLDER = os.path.join(ROOT, 'data')
 def reconstruction_deviance(X, U, V):
     Lambda = np.dot(U, V.T)
 
+    print(U)
+
     A = np.empty_like(X)
     valid = (X != 0)
     A[~valid] = 0

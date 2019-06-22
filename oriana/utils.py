@@ -32,7 +32,7 @@ def inverse_digamma(y):
         Thomas P. Minka
         2000; revised 2003, 2009, 2012
     """
-    x = np.where(y >= 2.22, np.exp(y) + .5, -1. / (y + digamma(1)))
-    for i in range(3):
+    x = np.where(y >= -2.22, np.exp(y) + .5, -1. / (y - digamma(1)))
+    for i in range(5):
         x -= ((digamma(x) - y) / digamma_prime(x))
     return x
