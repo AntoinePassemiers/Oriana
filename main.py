@@ -56,7 +56,7 @@ if __name__ == '__main__':
 
     n, m = counts.shape[0], counts.shape[1]
     p = m # TODO: ??
-    k = 3
+    k = 2
     dims = Dimensions({ 'n': n, 'm': m, 'p': p, 'k': k })
 
 
@@ -67,12 +67,12 @@ if __name__ == '__main__':
     D = Bernoulli(pi_d, dims('n,p ~ s,d'), name='D')
     # TODO: what to do with D then?
 
-    alpha1 = Parameter(np.random.rand(k))
-    alpha2 = Parameter(np.random.rand(k))
+    alpha1 = Parameter(np.random.gamma(2., size=k))
+    alpha2 = Parameter(np.ones(k))
     U = Gamma(alpha1, alpha2, dims('n,k ~ s,d'), name='U')
 
-    beta1 = Parameter(np.random.rand(k))
-    beta2 = Parameter(np.random.rand(k))
+    beta1 = Parameter(np.random.gamma(2., size=k))
+    beta2 = Parameter(np.ones(k))
     Vprime = Gamma(beta1, beta2, dims('m,k ~ s,d'), name='Vprime')
 
     V = Multiply(S, Vprime)
@@ -105,7 +105,7 @@ if __name__ == '__main__':
     Z_q = Multinomial(X, r, dims('n,m,k ~ d,d,c'))
     q.add_partition(Z, Z_q)
 
-    tau = 0.5 # TODO
+    tau = 0.5
     p_s = Parameter(np.full((m, k), tau))
     S_q = Bernoulli(p_s, dims('m,k ~ d,d'))
     q.add_partition(S, S_q)
@@ -143,9 +143,11 @@ if __name__ == '__main__':
     for iteration in range(100):
 
         U_hat = U_q.mean()
+        S_hat = S_q.mean()
         Vprime_hat = Vprime.mean()
+        V_hat = Vprime_hat * S_hat
 
-        divergence = reconstruction_deviance(X.asarray(), U_hat, Vprime_hat) # TODO
+        divergence = reconstruction_deviance(X.asarray(), U_hat, V_hat)
         history.append(divergence)
         print('Iteration %i - Bregman divergence: %f' % (iteration + 1, divergence))
 
@@ -156,7 +158,6 @@ if __name__ == '__main__':
         log_U_hat = U_q.meanlog()
         log_Vprime_hat = Vprime_q.meanlog()
         D_hat = D_q.mean()
-        S_hat = S_q.mean()
         Z_hat = Z_q.mean()
 
         a1[:] = alpha1[:] + np.einsum('ij,jk,ijk->ik', D_hat, S_hat, Z_hat)
@@ -184,19 +185,19 @@ if __name__ == '__main__':
         # Update hyper-parameters #
         ###########################
 
-        new_alpha1 = inverse_digamma(np.log(alpha2[:]) + np.mean(log_U_hat, axis=0))
-        new_alpha2 = alpha1[:] / np.mean(U_hat, axis=0)
-        alpha1[:], alpha2[:] = new_alpha1, new_alpha2
+        alpha1[:] = inverse_digamma(np.log(alpha2[:]) + np.mean(log_U_hat, axis=0))
+        alpha2[:] = alpha1[:] / np.mean(U_hat, axis=0)
 
-        new_beta1 = inverse_digamma(np.log(beta2[:]) + np.mean(log_Vprime_hat, axis=0))
-        new_beta2 = beta1[:] / np.mean(Vprime_hat, axis=0)
-        beta1[:], beta2[:] = new_beta1, new_beta2
+        beta1[:] = inverse_digamma(np.log(beta2[:]) + np.mean(log_Vprime_hat, axis=0))
+        beta2[:] = beta1[:] / np.mean(Vprime_hat, axis=0)
 
         # For numerical purposes
         alpha2[:] = np.maximum(alpha2[:], 1e-15)
         beta2[:] = np.maximum(beta2[:], 1e-15)
         alpha1[:] = np.maximum(alpha1[:], 1e-15)
         beta1[:] = np.maximum(beta1[:], 1e-15)
+
+        print(alpha2[:])
 
         pi_d[:] = np.mean(p_d[:], axis=0)
         pi_s[:] = np.mean(p_s[:], axis=1)
