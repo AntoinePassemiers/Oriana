@@ -13,7 +13,7 @@ from sklearn.decomposition import NMF
 
 class ZIGaP:
 
-    def __init__(self, cmatrix, k=2, tau=0.5):
+    def __init__(self, cmatrix, k=2, tau=0.5, use_factors=False):
 
         # Count matrix
         self.cmatrix = cmatrix
@@ -28,10 +28,16 @@ class ZIGaP:
         self.build_model()
 
         # Define corresponding variational distribution
-        self.define_variational_distribution()
+        self.define_variational_distribution(tau=tau)
 
         # Initialize parameters
-        self.initialize_variational_parameters(tau=tau)
+        self.tau = tau
+        self.use_factors = use_factors
+        model = NMF(n_components=self.k)
+        self.U[:] = model.fit_transform(self.X[:])
+        self.V.buffer = model.components_.T
+        self.Vprime[:] = model.components_.T
+        self.initialize_variational_parameters(use_factors=use_factors, tau=tau)
         self.initialize_prior_hyper_parameters()
 
     def build_model(self):
@@ -40,7 +46,7 @@ class ZIGaP:
         self.S = Bernoulli(self.pi_s, self.dims('m,k ~ d,s'), name='S')
 
         # Initialize node D
-        self.pi_d = Parameter(np.random.rand(self.p)) # TODO
+        self.pi_d = Parameter(np.random.rand(self.p))
         self.D = Bernoulli(self.pi_d, self.dims('n,p ~ s,d'), name='D')
 
         # Initialize node U
@@ -78,7 +84,7 @@ class ZIGaP:
         self.S_q = Bernoulli(self.p_s, self.dims('m,k ~ d,d'))
 
         # Initialize node D_q
-        self.p_d = Parameter((self.X[:] > 0).astype(np.int))
+        self.p_d = Parameter((self.X[:] > 0).astype(np.float))
         self.D_q = Bernoulli(self.p_d, self.dims('n,p ~ d,d'))
 
         # Initialize node U_q
@@ -91,17 +97,33 @@ class ZIGaP:
         self.b2 = Parameter(np.ones((self.m, self.k)))
         self.Vprime_q = Gamma(self.b1, self.b2, self.dims('m,k ~ d,d'))
 
-    def initialize_variational_parameters(self, tau=0.5):
-        self.tau = tau
-        # Actual variational parameters have already been
-        # initialized at this stage of code execution
+    def initialize_variational_parameters(self, use_factors=True, tau=0.5):
+
+        # Initialize parameters of Z_q
+        r = np.random.rand(self.n, self.m, self.k)
+        self.r[:] = r / r.sum(axis=2)[..., np.newaxis]
+
+        # Initialize parameters of S_q
+        self.p_s[:] = np.full((self.m, self.k), tau)
+
+        # Initialize parameters of D_q
+        self.p_d[:] = (self.X[:] > 0).astype(np.float)
+
+        # Initialize parameters of U_q
+        if use_factors:
+            self.a1[:] = self.U[:]
+        else:
+            self.a1[:] = np.random.gamma(2., size=(self.n, self.k))
+        self.a2[:] = np.ones((self.n, self.k))
+
+        # Initialize parameters of Vprime_q
+        if use_factors:
+            self.b1[:] = self.V[:]
+        else:
+            self.b1[:] = np.random.gamma(2., size=(self.m, self.k))
+        self.b2[:] = np.ones((self.m, self.k))
 
     def initialize_prior_hyper_parameters(self):
-        model = NMF(n_components=self.k)
-        self.U[:] = model.fit_transform(self.X[:])
-        self.V.buffer = model.components_.T
-        self.Vprime[:] = model.components_.T
-
         # TODO: init alpha and beta
 
         self.pi_d[:] = np.mean(self.p_d[:], axis=0)
@@ -126,7 +148,7 @@ class ZIGaP:
 
         # Update parameters of U_q
         self.a1[:] = self.alpha1[:] + np.einsum('ij,jk,ijk->ik', D_hat, S_hat, Z_hat)
-        self.a2[:] = self.alpha1[:] + np.einsum('ij,jk,jk->ik', D_hat, S_hat, Vprime_hat)
+        self.a2[:] = self.alpha2[:] + np.einsum('ij,jk,jk->ik', D_hat, S_hat, Vprime_hat)
 
         # Update parameters of Vprime_q
         self.b1[:] = self.beta1[:] + S_hat * np.einsum('ij,ijk->jk', D_hat, Z_hat)
@@ -141,13 +163,21 @@ class ZIGaP:
         self.r[indices] /= norm[indices][..., np.newaxis]
 
         # Update parameters of D_q
-        self.p_d[:] = sigmoid(logit(self.pi_d[:])[np.newaxis, ...] \
-                - np.einsum('jk,ik,jk->ij', S_hat, U_hat, Vprime_hat))
+        self.p_d[:, self.pi_d[:] == 0] = 0
+        self.p_d[:, self.pi_d[:] == 1] = 1
+        mask = np.logical_and(0 < self.pi_d[:], self.pi_d[:] < 1)
+        self.p_d[:, mask] = sigmoid(logit(self.pi_d[:])[np.newaxis, ...] \
+                - np.einsum('jk,ik,jk->ij', S_hat, U_hat, Vprime_hat))[:, mask]
+        self.p_d[self.X[:] == 0] = 0
 
         # Update parameters of S_q
-        self.p_s[:] = sigmoid(logit(self.pi_s[:])[..., np.newaxis] \
-                - np.einsum('ij,ik,jk->jk', D_hat, U_hat, Vprime_hat) \
-                + np.einsum('ij,ijk,ijk->jk', D_hat, Z_hat, log_sum))
+        self.p_s[self.pi_s[:] == 0] = 0
+        self.p_s[self.pi_s[:] == 1] = 1
+        mask = np.logical_and(0 < self.pi_s[:], self.pi_s[:] < 1)
+        tmp = np.nan_to_num(np.einsum('ij,ijk,ijk->jk', D_hat, Z_hat, log_sum))
+        self.p_s[mask] = sigmoid(logit(self.pi_s[:])[..., np.newaxis] \
+                - np.einsum('ij,ik,jk->jk', D_hat, U_hat, Vprime_hat) + tmp)[mask]
+
 
     def update_prior_hyper_parameters(self):
 
@@ -172,8 +202,8 @@ class ZIGaP:
         self.pi_s[:] = np.mean(self.p_s[:], axis=1)
 
     def step(self):
-        self.update_variational_parameters()
-        self.update_prior_hyper_parameters()
+        self.update_variational_parameters() # E-step
+        self.update_prior_hyper_parameters() # M-step
 
     def reconstruction_deviance(self):
         X = self.X.asarray()

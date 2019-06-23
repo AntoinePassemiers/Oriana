@@ -8,7 +8,7 @@ import numpy as np
 class Parameter:
 
     def __init__(self, data):
-        self._buffer = np.asarray(data)
+        self._buffer = np.asarray(data, dtype=np.float)
 
     def asarray(self):
         return self._buffer

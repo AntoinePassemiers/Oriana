@@ -3,7 +3,7 @@
 # author : Antoine Passemiers
 
 from oriana.model import ZIGaP
-from oriana.singlecell import CountMatrix
+from oriana.singlecell import CountMatrix, generate_factor_matrices
 
 import os
 import numpy as np
@@ -30,15 +30,15 @@ if __name__ == '__main__':
                  [ 0,  1,  2,  1,  0],
                  [ 4,  0,  9,  8,  1],
                  [ 3,  0,  6,  1,  0],
-                 [12,  0,  2, 26,  0],
-                 [ 6,  1, 12,  5,  2],
+                 [ 2,  0,  2,  3,  0],
+                 [ 6,  1,  2,  5,  2],
                  [ 6,  0,  0,  6,  0],
-                 [ 9,  0,  7, 23,  0]]))
-
+                 [ 9,  0,  7,  3,  0]]))
+    
 
     history = list()
     zigap = ZIGaP(counts, k=2)
-    for iteration in range(10):
+    for iteration in range(100):
         zigap.step()
         divergence = zigap.reconstruction_deviance()
         print('Iteration %i - Bregman divergence: %f' % (iteration + 1, divergence))

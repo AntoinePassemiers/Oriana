@@ -29,7 +29,16 @@ def test_digamma():
 def test_digamma_inverse():
     x = np.asarray([0.54, 6.2, 1.2, 0.3, 7.9, 4.5, 2.1])
     y = digamma(inverse_digamma(x))
-    assert_almost_equal(x, y)    
+    assert_almost_equal(x, y)
+
+
+def test_bernoulli_mean():
+    p = Parameter([[0.02, 0.34], [0.62, 0.79]])
+    dims = Dimensions({ 'n': 2, 'm': 2, 'k': 2 })
+    bern = Bernoulli(p, dims('m,k ~ d,d'))
+    x = np.asarray([[0.02, 0.34], [0.62, 0.79]])
+    y = bern.mean()
+    assert_almost_equal(x, y)
 
 
 def test_multinomial_mean():

@@ -62,7 +62,7 @@ def generate_v(m, k, sparsity_degree=0.2, beta=80, theta=0.8, n_groups=2):
     return V
 
 
-def generate_factor_matrices(n, m, k, sparsity_degree_in_v=0.2,
+def generate_factor_matrices(n, m, k, sparsity_degree_in_v=0.5,
                              beta=80, theta=0.8, n_groups=2):
     U = generate_u(n, k, n_groups=n_groups, theta=theta)
     V = generate_v(m, k, sparsity_degree=sparsity_degree_in_v,
