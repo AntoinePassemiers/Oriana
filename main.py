@@ -38,6 +38,9 @@ if __name__ == '__main__':
 
     history = list()
     zigap = ZIGaP(counts, k=2)
+    divergence = zigap.reconstruction_deviance()
+    print('Initial Bregman divergence: %f' % divergence)
+    history.append(divergence)
     for iteration in range(100):
         zigap.step()
         divergence = zigap.reconstruction_deviance()

@@ -174,9 +174,8 @@ class ZIGaP:
         self.p_s[self.pi_s[:] == 0] = 0
         self.p_s[self.pi_s[:] == 1] = 1
         mask = np.logical_and(0 < self.pi_s[:], self.pi_s[:] < 1)
-        tmp = np.nan_to_num(np.einsum('ij,ijk,ijk->jk', D_hat, Z_hat, log_sum))
-        self.p_s[mask] = sigmoid(logit(self.pi_s[:])[..., np.newaxis] \
-                - np.einsum('ij,ik,jk->jk', D_hat, U_hat, Vprime_hat) + tmp)[mask]
+        tmp = (np.einsum('ij,ijk,ijk->ijk', D_hat, Z_hat, log_sum) - np.einsum('ij,ik,jk->ijk', D_hat, U_hat, Vprime_hat)).sum(axis=0)
+        self.p_s[mask] = sigmoid(logit(self.pi_s[:])[..., np.newaxis] - tmp)[mask]
 
 
     def update_prior_hyper_parameters(self):
