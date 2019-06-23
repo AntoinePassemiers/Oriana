@@ -23,7 +23,7 @@ class CountMatrix:
         if isinstance(data, pd.DataFrame):
             self._data = data
         elif isinstance(data, np.ndarray):
-            self._data = pd.Dataframe(data=data)
+            self._data = pd.DataFrame(data=data)
         else:
             raise DatatypeException(
                     'Incompatible type %s' % type(data))
@@ -79,6 +79,10 @@ class CountMatrix:
     @property
     def T(self):
         return CountMatrix(self._data.transpose(copy=False))
+
+    @property
+    def shape(self):
+        return self._data.shape
    
     @property
     def col_names(self):

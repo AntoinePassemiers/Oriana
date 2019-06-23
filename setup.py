@@ -8,6 +8,7 @@ from setuptools import setup
 packages = [
         'oriana',
         'oriana.singlecell',
+        'oriana.model',
         'oriana.nodes',
         'oriana.nodes.deterministic',
         'oriana.nodes.probabilistic']
