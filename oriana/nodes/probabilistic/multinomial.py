@@ -45,12 +45,9 @@ class Multinomial(ProbabilisticNode):
 
         p_Z = p.sum(axis=1)[..., np.newaxis]
         p[p_Z[:, 0] > 0, :] /= p_Z[p_Z[:, 0] > 0]
-        print(p)
-        print(n[..., np.newaxis])
         p *= n[..., np.newaxis]
-        print(p)
         for i in range(_n):
-            out[i, :, :] = p
+            out[i, :, :] = p # TODO: numpy.tile
         return out
 
     def _logpdfs(self, samples, n, p):

@@ -53,3 +53,14 @@ def test_gamma_mean():
     y = np.asarray([[[2.1, 1.8], [2.1, 1.8]],
                     [[0.7, 2.3], [0.7, 2.3]]])
     assert_almost_equal(x, y)
+
+
+def test_gamma_mean_log():
+    alpha1 = Parameter([[2.1, 1.8], [0.7, 2.3]])
+    alpha2 = Parameter(np.ones((2, 2)))
+    dims = Dimensions({ 'n': 2, 'm': 2, 'k': 2 })
+    gamma = Gamma(alpha1, alpha2, dims('n,m,k ~ d,s,d'))
+    x = gamma.meanlog()
+    y = digamma(np.asarray([[[2.1, 1.8], [2.1, 1.8]],
+                    [[0.7, 2.3], [0.7, 2.3]]]))
+    assert_almost_equal(x, y)

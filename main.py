@@ -139,7 +139,7 @@ if __name__ == '__main__':
 
     history = list()
 
-    for iteration in range(100):
+    for iteration in range(10):
 
         U_hat = U_q.mean()
         S_hat = S_q.mean()
@@ -191,18 +191,12 @@ if __name__ == '__main__':
         beta1[:] = inverse_digamma(np.log(beta2[:]) + np.mean(log_Vprime_hat, axis=0))
         beta2[:] = beta1[:] / np.mean(Vprime_hat, axis=0)
 
-        # For numerical purposes
-        #alpha2[:] = np.maximum(alpha2[:], 1e-15)
-        #beta2[:] = np.maximum(beta2[:], 1e-15)
-        #alpha1[:] = np.maximum(alpha1[:], 1e-15)
-        #beta1[:] = np.maximum(beta1[:], 1e-15)
-
-        print(alpha2[:])
+        #print(alpha2[:])
 
         pi_d[:] = np.mean(p_d[:], axis=0)
         pi_s[:] = np.mean(p_s[:], axis=1)
 
-    plt.plot(history)
-    plt.ylabel('Bregman divergence')
-    plt.xlabel('Variational E-M iterations')
-    plt.show()
+    #plt.plot(history)
+    #plt.ylabel('Bregman divergence')
+    #plt.xlabel('Variational E-M iterations')
+    #plt.show()
