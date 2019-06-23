@@ -60,6 +60,6 @@ class Poisson(ProbabilisticNode):
         assert(out.shape == (_n, _m, _c))
         return out
 
-    def _logpdfs(self, samples, l):
+    def _logp(self, samples, l):
         params = l.reshape(-1, order='C')
         return scipy.stats.poisson.logpmf(samples, params)

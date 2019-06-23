@@ -20,7 +20,7 @@ class Bernoulli(ProbabilisticNode):
         ProbabilisticNode.__init__(self, pi, rel=rel, **kwargs)
 
     def _init_buffer(self, shape):
-        return np.zeros(shape, dtype=np.int)
+        return np.zeros(shape, dtype=np.float)
 
     def _sample(self, pi):
         """
@@ -32,7 +32,7 @@ class Bernoulli(ProbabilisticNode):
         n = self.n_samples_per_distrib
         m = self.n_distribs
         params = pi.reshape(-1, order='C')
-        ones = np.ones(len(pi), dtype=np.int)
+        ones = np.ones(len(pi), dtype=np.float)
         out = np.random.binomial(ones, params, size=(n, m))
         out = out[..., np.newaxis]
         return out
@@ -46,7 +46,6 @@ class Bernoulli(ProbabilisticNode):
         assert(out.shape == (_n, _m, _c))
         return out
 
-    def _logpdfs(self, samples, pi):
-        params = pi.reshape(-1, order='C')
-        return scipy.stats.bernoulli.logpmf(samples, params)
-
+    def _logp(self, samples, pi):
+        p = pi.reshape(-1, order='C')
+        return samples * p + (1. - samples) * (1. - p)

@@ -79,7 +79,6 @@ class DeterministicNode(Node, metaclass=ABCMeta):
         else:
             out = self._buffer
             assert(out is not None)
-        self.fix()
         return out
 
     def forward(self):
@@ -104,7 +103,7 @@ class ProbabilisticNode(Node, metaclass=ABCMeta):
         self.inv_reshape_func = rel.inv_reshape_func
         self._buffer = self._init_buffer(self.shape)
 
-    def logpdfs(self):
+    def logp(self):
         samples = self.inv_reshape_func(self._buffer)
         n = self.n_samples_per_distrib
         m = self.n_distribs
@@ -115,11 +114,11 @@ class ProbabilisticNode(Node, metaclass=ABCMeta):
         for param in self.parents:
             arr_params.append(param.asarray())
 
-        pdfs = self._logpdfs(samples, *arr_params)
+        pdfs = self._logp(samples, *arr_params)
         return np.nan_to_num(pdfs)
 
-    def logp(self):
-        return self.logpdfs().sum()
+    def loglikelihood(self):
+        return self.logp().sum()
 
     def updates_buffer(func):
         def new_func(self, recursive=False):
@@ -164,7 +163,9 @@ class ProbabilisticNode(Node, metaclass=ABCMeta):
         pass
         
     @abstractmethod
-    def _logpdfs(self, samples, *params):
+    def _logp(self, samples, *params):
+        """Element-wise log-likelihood.
+        """
         pass
 
     def __repr__(self):

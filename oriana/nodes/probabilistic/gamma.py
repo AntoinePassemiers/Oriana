@@ -60,7 +60,7 @@ class Gamma(ProbabilisticNode):
         assert(out.shape == (_n, _m, _c))
         return out
 
-    def _logpdfs(self, samples, alpha, beta):
+    def _logp(self, samples, alpha, beta):
         shape_params = alpha.reshape(-1, order='C')
         scale_params = 1. / beta.reshape(-1, order='C')
         return scipy.stats.gamma.logpdf(

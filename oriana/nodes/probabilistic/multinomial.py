@@ -50,7 +50,7 @@ class Multinomial(ProbabilisticNode):
             out[i, :, :] = p # TODO: numpy.tile
         return out
 
-    def _logpdfs(self, samples, n, p):
+    def _logp(self, samples, n, p):
         _n = self.n_samples_per_distrib
         _m = self.n_distribs
         _c = self.n_components

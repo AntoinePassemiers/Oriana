@@ -124,9 +124,19 @@ class ZIGaP:
         self.b2[:] = np.ones((self.m, self.k))
 
     def initialize_prior_hyper_parameters(self):
-        # TODO: init alpha and beta
 
+        # Initialize parameters of U
+        self.alpha1[:] = np.ones(self.k)
+        self.alpha2[:] = np.ones(self.k)
+
+        # Initialize parameters of Vprime
+        self.beta1[:] = np.ones(self.k)
+        self.beta2[:] = np.ones(self.k)
+
+        # Initialize parameters of D
         self.pi_d[:] = np.mean(self.p_d[:], axis=0)
+
+        # Initialize parameters of S
         self.pi_s[:] = np.mean(self.p_s[:], axis=1)
 
     def update_variational_parameters(self):
@@ -219,3 +229,12 @@ class ZIGaP:
         A[valid] = X[valid] * np.log(X[valid] / Lambda[valid])
 
         return (A - X + Lambda).sum()
+
+    def loglikelihood(self):
+        self.UV.forward()
+        ll = 0.
+        ll += self.D.loglikelihood()
+        ll += self.U.loglikelihood()
+        ll += self.Vprime.loglikelihood()
+        ll += self.Z.loglikelihood()
+        return ll
