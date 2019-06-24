@@ -3,7 +3,7 @@
 # author : Antoine Passemiers
 
 from oriana import Dimensions, Parameter
-from oriana.nodes import Poisson, Gamma, Bernoulli, Multinomial
+from oriana.nodes import Poisson, Gamma, Bernoulli, Multinomial, Multiply
 from oriana.utils import digamma, inverse_digamma, sigmoid, logit
 
 import numpy as np
@@ -73,3 +73,20 @@ def test_gamma_mean_log():
     y = digamma(np.asarray([[[2.1, 1.8], [2.1, 1.8]],
                     [[0.7, 2.3], [0.7, 2.3]]]))
     assert_almost_equal(x, y)
+
+def test_node_forward():
+    n = Parameter([[0, 1], [3, 1]])
+    p = Parameter([[[0.50, 0.50], [0.21, 0.79]],
+                   [[0.43, 0.57], [0.89, 0.11]]])
+    dims = Dimensions({ 'n': 2, 'm': 2, 'k': 2 })
+    mult1 = Multinomial(n, p, dims('n,m,k ~ d,d,c'))
+    q = Parameter(1-p.asarray())
+    mult2 = Multinomial(n, q, dims('n,m,k ~ d,d,c'))
+    prod = Multiply(mult1, mult2)
+    prod.forward()
+    mult1.sample()
+    mult2.sample()
+    assert not np.allclose(prod[:], mult1[:] * mult2[:])
+    prod.forward()
+    assert_almost_equal(prod[:], mult1[:] * mult2[:])
+
