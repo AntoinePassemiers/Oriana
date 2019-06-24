@@ -13,7 +13,7 @@ from sklearn.decomposition import NMF
 
 class ZIGaP:
 
-    def __init__(self, cmatrix, k=2, tau=0.5, use_factors=False):
+    def __init__(self, cmatrix, k=2, tau=0.5, use_factors=True):
 
         # Count matrix
         self.cmatrix = cmatrix
@@ -104,23 +104,23 @@ class ZIGaP:
         self.r[:] = r / r.sum(axis=2)[..., np.newaxis]
 
         # Initialize parameters of S_q
-        self.p_s[:] = np.full((self.m, self.k), tau)
+        self.p_s[:] = np.ones((self.m, self.k))
 
         # Initialize parameters of D_q
-        self.p_d[:] = (self.X[:] > 0).astype(np.float)
+        self.p_d[:] = np.ones((self.n, self.m)) # (self.X[:] > 0).astype(np.float)
 
         # Initialize parameters of U_q
         if use_factors:
             self.a1[:] = self.U[:]
         else:
-            self.a1[:] = np.random.gamma(2., size=(self.n, self.k))
+            self.a1[:] = np.random.gamma(1., size=(self.n, self.k))
         self.a2[:] = np.ones((self.n, self.k))
 
         # Initialize parameters of Vprime_q
         if use_factors:
             self.b1[:] = self.V[:]
         else:
-            self.b1[:] = np.random.gamma(2., size=(self.m, self.k))
+            self.b1[:] = np.random.gamma(1., size=(self.m, self.k))
         self.b2[:] = np.ones((self.m, self.k))
 
     def initialize_prior_hyper_parameters(self):
@@ -132,12 +132,12 @@ class ZIGaP:
         log_Vprime_hat = self.Vprime_q.meanlog()
 
         # Initialize parameters of U
-        self.alpha1[:] = inverse_digamma(np.mean(log_U_hat, axis=0))
-        self.alpha2[:] = self.alpha1[:] / np.mean(U_hat, axis=0)
+        self.alpha1[:] = np.ones(self.k) * 16.
+        self.alpha2[:] = np.ones(self.k) * 4.
 
         # Initialize parameters of Vprime
-        self.beta1[:] = inverse_digamma(np.mean(log_Vprime_hat, axis=0))
-        self.beta2[:] = self.beta1[:] / np.mean(Vprime_hat, axis=0)
+        self.beta1[:] = np.ones(self.k) * 16.
+        self.beta2[:] = np.ones(self.k) * 4.
 
         # Initialize parameters of D
         self.pi_d[:] = np.mean(self.p_d[:], axis=0)
@@ -146,6 +146,8 @@ class ZIGaP:
         self.pi_s[:] = np.mean(self.p_s[:], axis=1)
 
     def update_variational_parameters(self):
+
+        assert((0 <= self.r[:]).all() and (self.r[:] <= 1).all())
 
         # Compute expectations
         U_hat = self.U_q.mean()
@@ -159,7 +161,7 @@ class ZIGaP:
 
         # Update nodes
         self.U[:] = U_hat
-        self.S[:] = S_hat
+        self.S[:] = (S_hat > self.tau).astype(np.float)
         self.Vprime[:] = Vprime_hat
         self.V[:] = V_hat
         self.D[:] = D_hat
@@ -167,6 +169,7 @@ class ZIGaP:
         self.UV.forward()
 
         # Update parameters of U_q
+        assert((self.p_d[:] == D_hat).all())
         self.a1[:] = self.alpha1[:] + np.einsum('ij,jk,ijk->ik', D_hat, S_hat, Z_hat)
         self.a2[:] = self.alpha2[:] + np.dot(D_hat, V_hat)
         assert((self.a1[:] > 0).all())
@@ -186,18 +189,20 @@ class ZIGaP:
         assert((0 <= self.r[:]).all() and (self.r[:] <= 1).all())
 
         # Update parameters of D_q
-        self.p_d[:, self.pi_d[:] == 0] = 0
-        self.p_d[:, self.pi_d[:] == 1] = 1
-        mask = np.logical_and(0 < self.pi_d[:], self.pi_d[:] < 1)
-        self.p_d[:, mask] = sigmoid(logit(self.pi_d[:])[np.newaxis, ...] \
-                - np.dot(self.U[:], self.V[:].T))[:, mask]
-        self.p_d[self.X[:] != 0] = 1 # TODO: double check this
+        self.p_d[:] = sigmoid(logit(self.pi_d[:])[np.newaxis, ...] \
+                - np.dot(U_hat, V_hat.T))
+        self.p_d[:, self.pi_d[:] == 0] = 1e-10
+        self.p_d[:, self.pi_d[:] == 1] = 1. - 1e-10
+        self.p_d[self.X[:] != 0] = 1. - 1e-10
         assert((0 <= self.p_d[:]).all() and (self.p_d[:] <= 1).all())
 
         # Update parameters of S_q
-        tmp = np.nan_to_num(np.einsum('ij,ijk,ijk->jk', D_hat, Z_hat, log_sum))
+        tmp = -np.nan_to_num(np.einsum('ij,ijk,ijk->jk', D_hat, Z_hat, log_sum))
         tmp += np.nan_to_num(np.dot(D_hat.T, U_hat) * Vprime_hat)
-        self.p_s[mask] = sigmoid(logit(self.pi_s[:])[..., np.newaxis] - tmp)[mask]
+        self.p_s[:] = sigmoid(logit(self.pi_s[:])[..., np.newaxis] + tmp)
+        self.p_s[:] = np.nan_to_num(self.p_s[:])
+        self.p_s[self.pi_s[:] == 0] = 1e-10
+        self.p_s[self.pi_s[:] == 1] = 1. - 1e-10
         assert((0 <= self.p_s[:]).all() and (self.p_s[:] <= 1).all())
 
     def update_prior_hyper_parameters(self):
@@ -232,9 +237,9 @@ class ZIGaP:
         D = self.D.asarray()
         V = self.V.asarray()
 
-        Lambda = np.dot(U, V.T) * D
+        Lambda_mat = np.dot(U, V.T) * D
 
-        print(np.round(Lambda).astype(np.int))
+        print(np.round(Lambda_mat).astype(np.int))
 
         """
         A = np.empty_like(X)
@@ -248,7 +253,7 @@ class ZIGaP:
         X_node = Poisson(Lambda, self.dims('n,m ~ d,d'), name='X')
         ll_X_given_X = X_node.loglikelihood()
 
-        Lambda[:] = np.dot(U, V.T) * D
+        Lambda[:] = Lambda_mat
         ll_X_given_UV = X_node.loglikelihood()
 
         return -2. * (ll_X_given_UV - ll_X_given_X)

@@ -44,11 +44,9 @@ class Multinomial(ProbabilisticNode):
         n = n.reshape(_m, order='C')
         p = p.reshape((_m, _c), order='C')
 
-        p_Z = p.sum(axis=1)[..., np.newaxis]
-        p[p_Z[:, 0] > 0, :] /= p_Z[p_Z[:, 0] > 0]
-        p *= n[..., np.newaxis]
+        pn = p * n[..., np.newaxis]
         for i in range(_n):
-            out[i, :, :] = p # TODO: numpy.tile
+            out[i, :, :] = pn # TODO: numpy.tile
         return out
 
     def _logp(self, samples, n, p):

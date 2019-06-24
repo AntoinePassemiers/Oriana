@@ -42,7 +42,7 @@ if __name__ == '__main__':
     loglikelihood = zigap.loglikelihood()
     print('Initial Bregman divergence: %f' % divergence)
     history.append([divergence, loglikelihood])
-    for iteration in range(3000):
+    for iteration in range(300):
         zigap.step()
         divergence = zigap.reconstruction_deviance()
         loglikelihood = zigap.loglikelihood()
