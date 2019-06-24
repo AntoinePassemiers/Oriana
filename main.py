@@ -34,7 +34,7 @@ if __name__ == '__main__':
                  [ 6,  1,  2,  5,  2],
                  [ 6,  0,  0,  6,  0],
                  [ 9,  0,  7,  3,  0]]))
-    
+
 
     history = list()
     zigap = ZIGaP(counts, k=2)
@@ -53,11 +53,11 @@ if __name__ == '__main__':
 
     fig, ax1 = plt.subplots()
     ax1.set_xlabel('Variational E-M iterations')
-    ax1.set_ylabel('Bregman divergence', color='red')
-    ax1.plot(history[:, 0], color='red')
-    ax1.tick_params(axis='y', labelcolor='red')
+    ax1.set_ylabel('Bregman divergence', color='salmon')
+    ax1.plot(history[:, 0], color='salmon')
+    ax1.tick_params(axis='y', labelcolor='salmon')
     ax2 = ax1.twinx()
-    ax2.set_ylabel('Log-likelihood', color='blue')
-    ax2.plot(history[:, 1], color='blue')
-    ax2.tick_params(axis='y', labelcolor='blue')
+    ax2.set_ylabel('Log-likelihood', color='steelblue')
+    ax2.plot(history[:, 1], color='steelblue')
+    ax2.tick_params(axis='y', labelcolor='steelblue')
     plt.show()
