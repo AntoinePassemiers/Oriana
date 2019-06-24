@@ -3,6 +3,7 @@
 # author : Antoine Passemiers
 
 from oriana.nodes.base import ProbabilisticNode
+from oriana.utils import factorial, log
 
 import numpy as np
 import scipy.stats
@@ -59,6 +60,7 @@ class Multinomial(ProbabilisticNode):
 
         out = np.empty((_n, _m), dtype=np.float)
         for i in range(_m):
-            out[:, i] = scipy.stats.multinomial.logpmf(
-                    samples[:, i, :], n=n[i], p=p[i])
+            x = samples[:, i, :]
+            out[:, i] = log(factorial(np.floor(n))) + np.dot(x, p[i]) 
+            out[:, i] -= log(factorial(np.floor(x))).sum(axis=1)
         return out

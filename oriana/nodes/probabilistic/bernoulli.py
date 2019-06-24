@@ -3,6 +3,7 @@
 # author : Antoine Passemiers
 
 from oriana.nodes.base import ProbabilisticNode
+from oriana.utils import log
 
 import numpy as np
 import scipy.stats
@@ -48,5 +49,4 @@ class Bernoulli(ProbabilisticNode):
 
     def _logp(self, samples, pi):
         p = pi.reshape(-1, order='C')
-        log = lambda x: np.log(np.maximum(1e-15, x))
         return samples * log(p) + (1. - samples) * log(1. - p)

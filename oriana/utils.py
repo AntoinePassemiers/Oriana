@@ -15,6 +15,14 @@ def sigmoid(x):
     return 1. / (1. + np.exp(-x))
 
 
+def log(x):
+    return np.log(np.maximum(1e-15, x))
+
+
+def factorial(x):
+    return scipy.special.factorial(x)
+
+
 def gamma(x):
     return scipy.special.gamma(x)
 

@@ -3,6 +3,7 @@
 # author : Antoine Passemiers
 
 from oriana.nodes.base import ProbabilisticNode
+from oriana.utils import factorial, log
 
 import numpy as np
 import scipy.stats
@@ -61,5 +62,5 @@ class Poisson(ProbabilisticNode):
         return out
 
     def _logp(self, samples, l):
-        params = l.reshape(-1, order='C')
-        return scipy.stats.poisson.logpmf(samples, params)
+        l = l.reshape(-1, order='C')
+        return -l + samples * log(l) + log(factorial(np.floor(samples)))
