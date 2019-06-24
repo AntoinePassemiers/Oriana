@@ -21,13 +21,13 @@ class Multinomial(ProbabilisticNode):
         ProbabilisticNode.__init__(self, n, p, rel=rel, **kwargs)
 
     def _init_buffer(self, shape):
-        return np.zeros(shape, dtype=np.int)
+        return np.zeros(shape, dtype=np.float)
 
     def _sample(self, n, p):
         _n = self.n_samples_per_distrib
         _m = self.n_distribs
         _c = self.n_components
-        out = np.empty((_n, _m, _c), dtype=np.int)
+        out = np.empty((_n, _m, _c), dtype=np.float)
         
         p = p.reshape((_m, _c), order='C')
         n = n.reshape(_m, order='C')

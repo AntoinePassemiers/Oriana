@@ -36,7 +36,7 @@ class Poisson(ProbabilisticNode):
         Todo:
             * Handle sparse arrays
         """
-        return np.zeros(shape, dtype=np.int)
+        return np.zeros(shape, dtype=np.float)
 
     def _sample(self, l):
         """

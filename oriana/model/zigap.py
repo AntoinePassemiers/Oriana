@@ -151,6 +151,7 @@ class ZIGaP:
         U_hat = self.U_q.mean()
         S_hat = self.S_q.mean()
         Vprime_hat = self.Vprime_q.mean()
+        V_hat = S_hat * Vprime_hat
         log_U_hat = self.U_q.meanlog()
         log_Vprime_hat = self.Vprime_q.meanlog()
         D_hat = self.D_q.mean()
@@ -160,18 +161,20 @@ class ZIGaP:
         self.U[:] = U_hat
         self.S[:] = S_hat
         self.Vprime[:] = Vprime_hat
-        self.V.forward()
+        self.V[:] = V_hat
         self.D[:] = D_hat
         self.Z[:] = Z_hat
         self.UV.forward()
 
         # Update parameters of U_q
         self.a1[:] = self.alpha1[:] + np.einsum('ij,jk,ijk->ik', D_hat, S_hat, Z_hat)
-        self.a2[:] = self.alpha2[:] + np.dot(D_hat, S_hat * Vprime_hat)
+        self.a2[:] = self.alpha2[:] + np.dot(D_hat, V_hat)
+        assert((self.a1[:] > 0).all())
 
         # Update parameters of Vprime_q
         self.b1[:] = self.beta1[:] + S_hat * np.einsum('ij,ijk->jk', D_hat, Z_hat)
         self.b2[:] = self.beta2[:] + S_hat * np.dot(D_hat.T, U_hat)
+        assert((self.b1[:] > 0).all())
 
         # Update parameters of Z_q
         S_tilde = (self.p_s[:] > self.tau)
@@ -180,6 +183,7 @@ class ZIGaP:
         norm = self.r[:].sum(axis=2)
         indices = (norm != 0.)
         self.r[indices] /= norm[indices][..., np.newaxis]
+        assert((0 <= self.r[:]).all() and (self.r[:] <= 1).all())
 
         # Update parameters of D_q
         self.p_d[:, self.pi_d[:] == 0] = 0
@@ -188,11 +192,13 @@ class ZIGaP:
         self.p_d[:, mask] = sigmoid(logit(self.pi_d[:])[np.newaxis, ...] \
                 - np.dot(self.U[:], self.V[:].T))[:, mask]
         self.p_d[self.X[:] != 0] = 1 # TODO: double check this
+        assert((0 <= self.p_d[:]).all() and (self.p_d[:] <= 1).all())
 
         # Update parameters of S_q
-        tmp = -np.nan_to_num(np.einsum('ij,ijk,ijk->jk', D_hat, Z_hat, log_sum))
-        tmp += np.nan_to_num(np.einsum('ij,ik,jk->jk', D_hat, U_hat, Vprime_hat))
-        self.p_s[mask] = sigmoid(logit(self.pi_s[:])[..., np.newaxis] + tmp)[mask]
+        tmp = np.nan_to_num(np.einsum('ij,ijk,ijk->jk', D_hat, Z_hat, log_sum))
+        tmp += np.nan_to_num(np.dot(D_hat.T, U_hat) * Vprime_hat)
+        self.p_s[mask] = sigmoid(logit(self.pi_s[:])[..., np.newaxis] - tmp)[mask]
+        assert((0 <= self.p_s[:]).all() and (self.p_s[:] <= 1).all())
 
     def update_prior_hyper_parameters(self):
 
@@ -223,18 +229,34 @@ class ZIGaP:
     def reconstruction_deviance(self):
         X = self.X.asarray()
         U = self.U.asarray()
+        D = self.D.asarray()
         V = self.V.asarray()
-        Lambda = np.dot(U, V.T)
 
-        print(Lambda)
+        Lambda = np.dot(U, V.T) * D
 
+        print(np.round(Lambda).astype(np.int))
+
+        """
         A = np.empty_like(X)
         valid = (X != 0)
         A[~valid] = 0
         #Lambda[Lambda == 0] = 1e-15 # TODO
         A[valid] = X[valid] * np.log(X[valid] / Lambda[valid])
-
         return (A - X + Lambda).sum()
+        """
+        Lambda = Parameter(X[:])
+        X_node = Poisson(Lambda, self.dims('n,m ~ d,d'), name='X')
+        ll_X_given_X = X_node.loglikelihood()
+
+        Lambda[:] = np.dot(U, V.T) * D
+        ll_X_given_UV = X_node.loglikelihood()
+
+        return -2. * (ll_X_given_UV - ll_X_given_X)
+
+    def frobenius_norm(self):
+        Lambda = np.dot(self.U.asarray(), self.V.asarray().T) * self.D.asarray()
+        frob = np.sqrt(((Lambda.flatten() - self.X.asarray().flatten()) ** 2.).sum())
+        return frob
 
     def loglikelihood(self):
         self.UV.forward()

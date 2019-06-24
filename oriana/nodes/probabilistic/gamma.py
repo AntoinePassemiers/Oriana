@@ -27,7 +27,7 @@ class Gamma(ProbabilisticNode):
         _n = self.n_samples_per_distrib
         _m = self.n_distribs
         _c = self.n_components
-        out = np.empty((_n, _m, _c), dtype=np.int)
+        out = np.empty((_n, _m, _c), dtype=np.float)
         shape_params = alpha.reshape(-1, order='C')
         scale_params = 1. / beta.reshape(-1, order='C')
         out = np.random.gamma(shape_params, scale_params, size=(_n, _m))
