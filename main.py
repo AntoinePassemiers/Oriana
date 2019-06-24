@@ -42,7 +42,7 @@ if __name__ == '__main__':
     loglikelihood = zigap.loglikelihood()
     print('Initial Bregman divergence: %f' % divergence)
     history.append([divergence, loglikelihood])
-    for iteration in range(100):
+    for iteration in range(300):
         zigap.step()
         divergence = zigap.reconstruction_deviance()
         loglikelihood = zigap.loglikelihood()
@@ -50,11 +50,14 @@ if __name__ == '__main__':
         history.append([divergence, loglikelihood])
     history = np.asarray(history)
 
-    plt.plot(history[:, 0])
-    plt.ylabel('Bregman divergence')
-    plt.xlabel('Variational E-M iterations')
-    plt.show()
-    plt.plot(history[:, 1])
-    plt.ylabel('Log-likelihood')
-    plt.xlabel('Variational E-M iterations')
+
+    fig, ax1 = plt.subplots()
+    ax1.set_xlabel('Variational E-M iterations')
+    ax1.set_ylabel('Bregman divergence', color='red')
+    ax1.plot(history[:, 0], color='red')
+    ax1.tick_params(axis='y', labelcolor='red')
+    ax2 = ax1.twinx()
+    ax2.set_ylabel('Log-likelihood', color='blue')
+    ax2.plot(history[:, 1], color='blue')
+    ax2.tick_params(axis='y', labelcolor='blue')
     plt.show()

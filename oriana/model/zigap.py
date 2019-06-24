@@ -125,13 +125,19 @@ class ZIGaP:
 
     def initialize_prior_hyper_parameters(self):
 
+        # Compute expectations
+        U_hat = self.U_q.mean()
+        Vprime_hat = self.Vprime_q.mean()
+        log_U_hat = self.U_q.meanlog()
+        log_Vprime_hat = self.Vprime_q.meanlog()
+
         # Initialize parameters of U
-        self.alpha1[:] = np.ones(self.k)
-        self.alpha2[:] = np.ones(self.k)
+        self.alpha1[:] = inverse_digamma(np.mean(log_U_hat, axis=0))
+        self.alpha2[:] = self.alpha1[:] / np.mean(U_hat, axis=0)
 
         # Initialize parameters of Vprime
-        self.beta1[:] = np.ones(self.k)
-        self.beta2[:] = np.ones(self.k)
+        self.beta1[:] = inverse_digamma(np.mean(log_Vprime_hat, axis=0))
+        self.beta2[:] = self.beta1[:] / np.mean(Vprime_hat, axis=0)
 
         # Initialize parameters of D
         self.pi_d[:] = np.mean(self.p_d[:], axis=0)
@@ -145,24 +151,27 @@ class ZIGaP:
         U_hat = self.U_q.mean()
         S_hat = self.S_q.mean()
         Vprime_hat = self.Vprime_q.mean()
-        V_hat = Vprime_hat * S_hat
         log_U_hat = self.U_q.meanlog()
         log_Vprime_hat = self.Vprime_q.meanlog()
         D_hat = self.D_q.mean()
         Z_hat = self.Z_q.mean()
 
-        # Update factor matrices
+        # Update nodes
         self.U[:] = U_hat
+        self.S[:] = S_hat
         self.Vprime[:] = Vprime_hat
-        self.V[:] = V_hat
+        self.V.forward()
+        self.D[:] = D_hat
+        self.Z[:] = Z_hat
+        self.UV.forward()
 
         # Update parameters of U_q
         self.a1[:] = self.alpha1[:] + np.einsum('ij,jk,ijk->ik', D_hat, S_hat, Z_hat)
-        self.a2[:] = self.alpha2[:] + np.einsum('ij,jk,jk->ik', D_hat, S_hat, Vprime_hat)
+        self.a2[:] = self.alpha2[:] + np.dot(D_hat, S_hat * Vprime_hat)
 
         # Update parameters of Vprime_q
         self.b1[:] = self.beta1[:] + S_hat * np.einsum('ij,ijk->jk', D_hat, Z_hat)
-        self.b2[:] = self.beta2[:] + S_hat * np.einsum('ij,ik->jk', D_hat, U_hat)
+        self.b2[:] = self.beta2[:] + S_hat * np.dot(D_hat.T, U_hat)
 
         # Update parameters of Z_q
         S_tilde = (self.p_s[:] > self.tau)
@@ -177,16 +186,13 @@ class ZIGaP:
         self.p_d[:, self.pi_d[:] == 1] = 1
         mask = np.logical_and(0 < self.pi_d[:], self.pi_d[:] < 1)
         self.p_d[:, mask] = sigmoid(logit(self.pi_d[:])[np.newaxis, ...] \
-                - np.einsum('jk,ik,jk->ij', S_hat, U_hat, Vprime_hat))[:, mask]
-        self.p_d[self.X[:] == 0] = 0
+                - np.dot(self.U[:], self.V[:].T))[:, mask]
+        self.p_d[self.X[:] != 0] = 1 # TODO: double check this
 
         # Update parameters of S_q
-        self.p_s[self.pi_s[:] == 0] = 0
-        self.p_s[self.pi_s[:] == 1] = 1
-        mask = np.logical_and(0 < self.pi_s[:], self.pi_s[:] < 1)
-        tmp = (np.einsum('ij,ijk,ijk->ijk', D_hat, Z_hat, log_sum) - np.einsum('ij,ik,jk->ijk', D_hat, U_hat, Vprime_hat)).sum(axis=0)
-        self.p_s[mask] = sigmoid(logit(self.pi_s[:])[..., np.newaxis] - tmp)[mask]
-
+        tmp = -np.nan_to_num(np.einsum('ij,ijk,ijk->jk', D_hat, Z_hat, log_sum))
+        tmp += np.nan_to_num(np.einsum('ij,ik,jk->jk', D_hat, U_hat, Vprime_hat))
+        self.p_s[mask] = sigmoid(logit(self.pi_s[:])[..., np.newaxis] + tmp)[mask]
 
     def update_prior_hyper_parameters(self):
 

@@ -3,7 +3,7 @@
 # author : Antoine Passemiers
 
 from oriana.nodes.base import ProbabilisticNode
-from oriana.utils import digamma
+from oriana.utils import digamma, gamma
 
 import numpy as np
 import scipy.stats
@@ -61,7 +61,9 @@ class Gamma(ProbabilisticNode):
         return out
 
     def _logp(self, samples, alpha, beta):
-        shape_params = alpha.reshape(-1, order='C')
-        scale_params = 1. / beta.reshape(-1, order='C')
-        return scipy.stats.gamma.logpdf(
-                samples, shape_params, scale=scale_params)
+        alpha = alpha.reshape(-1, order='C')
+        beta = beta.reshape(-1, order='C')
+        log = lambda x: np.log(np.maximum(1e-15, x))
+        logps = (alpha - 1.) * log(samples) - (samples / beta)
+        logps += -alpha * log(beta) - log(gamma(alpha))
+        return logps

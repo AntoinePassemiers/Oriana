@@ -15,6 +15,10 @@ def sigmoid(x):
     return 1. / (1. + np.exp(-x))
 
 
+def gamma(x):
+    return scipy.special.gamma(x)
+
+
 def digamma(x):
     return scipy.special.digamma(x)
 

@@ -114,8 +114,7 @@ class ProbabilisticNode(Node, metaclass=ABCMeta):
         for param in self.parents:
             arr_params.append(param.asarray())
 
-        pdfs = self._logp(samples, *arr_params)
-        return np.nan_to_num(pdfs)
+        return np.nan_to_num(self._logp(samples, *arr_params))
 
     def loglikelihood(self):
         return self.logp().sum()
