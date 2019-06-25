@@ -11,7 +11,7 @@ import numpy as np
 from sklearn.decomposition import NMF
 
 
-class ZIGaP:
+class SparseZIGaP:
 
     def __init__(self, cmatrix, k=2, tau=0.5, use_factors=True):
 

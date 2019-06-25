@@ -2,7 +2,7 @@
 # main.py
 # author : Antoine Passemiers
 
-from oriana.model import ZIGaP
+from oriana.models import GaP, SparseZIGaP
 from oriana.singlecell import CountMatrix, generate_factor_matrices
 
 import os
@@ -37,12 +37,12 @@ if __name__ == '__main__':
 
 
     history = list()
-    zigap = ZIGaP(counts, k=2)
+    zigap = GaP(counts, k=2)
     divergence = zigap.reconstruction_deviance()
     loglikelihood = zigap.loglikelihood()
     print('Initial Bregman divergence: %f' % divergence)
     history.append([divergence, loglikelihood])
-    for iteration in range(300):
+    for iteration in range(500):
         zigap.step()
         divergence = zigap.reconstruction_deviance()
         loglikelihood = zigap.loglikelihood()
