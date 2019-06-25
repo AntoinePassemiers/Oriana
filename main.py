@@ -22,7 +22,7 @@ if __name__ == '__main__':
     print('Shape of X: %s' % str(counts.shape))
 
     history = list()
-    model = GaP(counts, k=2, use_factors=True)
+    model = SparseZIGaP(counts, k=2, use_factors=True)
     best_divergence = model.reconstruction_deviance()
     print('Initial Bregman divergence: %f' % best_divergence)
     history.append(best_divergence)

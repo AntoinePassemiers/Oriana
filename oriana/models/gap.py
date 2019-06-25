@@ -43,20 +43,6 @@ class GaP(FactorModel):
         self.b2 = Parameter(np.ones((self.m, self.k)))
         self.V_q = Gamma(self.b1, self.b2, self.dims('m,k ~ d,d'))
 
-    def initialize_parameters(self):
-
-        # Initialize prior hyper-parameters
-        self.initialize_prior_hyper_parameters()
-
-        # Update expectations
-        self.U_hat = self.U_q.mean()
-        self.V_hat = self.V_q.mean()
-        self.log_U_hat = self.U_q.meanlog()
-        self.log_V_hat = self.V_q.meanlog()
-
-        # Update hyper-parameters
-        self.update_prior_hyper_parameters()
-
     def initialize_variational_parameters(self):
 
         # Initialize parameters of U_q
@@ -96,17 +82,17 @@ class GaP(FactorModel):
     def update_variational_parameters(self):
 
         # Update parameters of Z_q
-        self.Z_hat_i = np.empty((self.n, self.k), dtype=np.float32)
-        self.Z_hat_j = np.empty((self.m, self.k), dtype=np.float32)
+        Z_hat_i = np.empty((self.n, self.k), dtype=np.float32)
+        Z_hat_j = np.empty((self.m, self.k), dtype=np.float32)
         GaP.compute_Z_q_expectations(
-                self.Z_hat_i,
-                self.Z_hat_j,
+                Z_hat_i,
+                Z_hat_j,
                 self.log_U_hat,
                 self.log_V_hat,
                 self.X[:].astype(np.float32))
 
         # Update parameters of U_q
-        self.a1[:] = self.alpha1[np.newaxis, ...] + self.Z_hat_i
+        self.a1[:] = self.alpha1[np.newaxis, ...] + Z_hat_i
         self.a2[:] = self.alpha2[:] + self.V_hat.sum(axis=0)
         self.a1[:] = np.maximum(1e-15, np.nan_to_num(self.a1[:]))
         self.a2[:] = np.maximum(1e-15, np.nan_to_num(self.a2[:]))
@@ -114,7 +100,7 @@ class GaP(FactorModel):
         self.log_U_hat = self.U_q.meanlog()
 
         # Update parameters of Vprime_q
-        self.b1[:] = self.beta1[np.newaxis, ...] + self.Z_hat_j
+        self.b1[:] = self.beta1[np.newaxis, ...] + Z_hat_j
         self.b2[:] = self.beta2[:] + self.U_hat.sum(axis=0)
         self.b1[:] = np.maximum(1e-15, np.nan_to_num(self.b1[:]))
         self.b2[:] = np.maximum(1e-15, np.nan_to_num(self.b2[:]))
@@ -134,8 +120,14 @@ class GaP(FactorModel):
         self.alpha2[:] = self.alpha1[:] / np.mean(self.U_hat, axis=0)
         self.alpha2[:] = np.maximum(1e-15, np.nan_to_num(self.alpha2[:]))
 
-        # Update parameters of node Vprime
+        # Update parameters of node V
         self.beta1[:] = inverse_digamma(np.log(self.beta2[:]) + np.mean(self.log_V_hat, axis=0))
         self.beta1[:] = np.maximum(1e-15, np.nan_to_num(self.beta1[:]))
         self.beta2[:] = self.beta1[:] / np.mean(self.V_hat, axis=0)
         self.beta2[:] = np.maximum(1e-15, np.nan_to_num(self.beta2[:]))
+
+    def update_expectations(self):
+        self.U_hat = self.U_q.mean()
+        self.V_hat = self.V_q.mean()
+        self.log_U_hat = self.U_q.meanlog()
+        self.log_V_hat = self.V_q.meanlog()

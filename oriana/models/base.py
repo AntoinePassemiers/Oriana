@@ -12,7 +12,7 @@ from sklearn.decomposition import NMF
 
 class FactorModel(metaclass=ABCMeta):
 
-    def __init__(self, cmatrix, k=2, tau=0.5, use_factors=True):
+    def __init__(self, cmatrix, k=2, use_factors=True):
 
         # Count matrix
         self.cmatrix = cmatrix
@@ -34,12 +34,22 @@ class FactorModel(metaclass=ABCMeta):
         self.define_variational_distribution()
 
         # Initialize parameters
-        self.tau = tau
         self.use_factors = use_factors
         model = NMF(n_components=self.k)
         self.U[:] = model.fit_transform(self.X[:])
         self.V.buffer = model.components_.T
         self.initialize_parameters()
+
+    def initialize_parameters(self):
+
+        # Initialize variational hyper-parameters
+        self.initialize_variational_parameters()
+
+        # Update expectations
+        self.update_expectations()
+
+        # Update hyper-parameters
+        self.update_prior_hyper_parameters()
 
     def step(self):
         self.update_variational_parameters() # E-step
@@ -104,10 +114,6 @@ class FactorModel(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def initialize_parameters(self):
-        pass
-
-    @abstractmethod
     def initialize_variational_parameters(self):
         pass
 
@@ -117,4 +123,8 @@ class FactorModel(metaclass=ABCMeta):
 
     @abstractmethod
     def update_prior_hyper_parameters(self):
+        pass
+
+    @abstractmethod
+    def update_expectations(self):
         pass

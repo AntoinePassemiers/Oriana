@@ -3,19 +3,21 @@
 # author : Antoine Passemiers
 
 from oriana import Dimensions, Parameter
-from oriana.models import GaP
+from oriana.models import FactorModel
 from oriana.nodes import Poisson, Gamma, Bernoulli, Multinomial
 from oriana.utils import inverse_digamma, sigmoid, logit
 from oriana.nodes import Einsum, Multiply, Transpose
 
+import numba
 import numpy as np
 from sklearn.decomposition import NMF
 
 
-class SparseZIGaP(GaP):
+class SparseZIGaP(FactorModel):
 
-    def __init__(self, *args, **kwargs):
-        GaP.__init__(self, *args, **kwargs)
+    def __init__(self, *args, tau=0.5, **kwargs):
+        self.tau = tau
+        FactorModel.__init__(self, *args, **kwargs)
 
     def build_u_node(self):
         self.alpha1 = Parameter(np.random.gamma(2., size=self.k))
@@ -62,8 +64,24 @@ class SparseZIGaP(GaP):
 
     def initialize_variational_parameters(self):
 
-        # Initialize parameters of U and Vprime
-        GaP.initialize_variational_parameters(self)
+        # Initialize parameters of U_q
+        if self.use_factors:
+            self.a1[:] = self.U[:]
+        else:
+            self.a1[:] = np.random.gamma(1., size=(self.n, self.k))
+        epsilon = max(np.max(self.U[:]), np.max(self.V[:]))
+        #self.a1[:] += np.random.uniform(-epsilon, epsilon, size=self.a1[:].shape)
+        self.a1[:] = np.maximum(1e-15, np.nan_to_num(self.a1[:]))
+        self.a2[:] = np.ones((self.n, self.k))
+
+        # Initialize parameters of Vprime_q
+        if self.use_factors:
+            self.b1[:] = self.V[:]
+        else:
+            self.b1[:] = np.random.gamma(1., size=(self.m, self.k))
+        #self.b1[:] += np.random.uniform(-epsilon, epsilon, size=self.b1[:].shape)
+        self.b1[:] = np.maximum(1e-15, np.nan_to_num(self.b1[:]))
+        self.b2[:] = np.ones((self.m, self.k))
 
         # Initialize parameters of S_q
         self.p_s[:] = np.ones((self.m, self.k))
@@ -71,78 +89,101 @@ class SparseZIGaP(GaP):
         # Initialize parameters of D_q
         self.p_d[:] = (self.X[:] > 0).astype(np.float)
 
-    def initialize_parameters(self):
-
-        # Initialize variational parameters
-        self.initialize_variational_parameters()
-
-        # Update expectations
-        self.U_hat = self.U_q.mean()
-        self.Vprime_hat = self.Vprime_q.mean()
-        self.log_U_hat = self.U_q.meanlog()
-        self.log_V_hat = self.V_q.meanlog()
-        self.D_hat = self.D_q.mean()
-
-        # Update hyper-parameters
-        self.update_prior_hyper_parameters()
+    @numba.jit('void(f4[:, :], f4[:, :], f4[:, :], f4[:, :], f4[:, :], f4[:, :], f4[:, :], f4[:, :], f4[:, :])')
+    def compute_Z_q_expectations(DSZ_hat, DZ_hat, DZ_exp_logsum_hat, log_U_hat, log_V_hat, S_tilde, S_hat, D_hat, X):
+        DSZ_hat[:, :] = 0
+        DZ_hat[:, :] = 0
+        DZ_exp_logsum_hat[:, :] = 0        
+        n, p, latent_dim = log_U_hat.shape[0], log_V_hat.shape[0], log_U_hat.shape[1]
+        for i in range(n):
+            for j in range(p):
+                logsum = log_U_hat[i, :] + log_V_hat[j, :]
+                exp_logsum = np.exp(logsum)
+                den = exp_logsum.sum()
+                den = den if den > 0 else 1
+                for k in range(latent_dim):
+                    expectation = X[i, j] * S_tilde[j, k] * exp_logsum[k] / den
+                    DSZ_hat[i, k] += D_hat[i, j] * S_hat[j, k] * expectation
+                    DZ_hat[j, k] += D_hat[i, k] * expectation
+                    DZ_exp_logsum_hat[j, k] += D_hat[i, j] * expectation * logsum[k]
 
     def update_variational_parameters(self):
 
         # Update parameters of Z_q
-        self.Z_hat_i = np.empty((self.n, self.k), dtype=np.float32)
-        self.Z_hat_j = np.empty((self.m, self.k), dtype=np.float32)
-        GaP.compute_Z_q_expectations(
-                self.Z_hat_i,
-                self.Z_hat_j,
+        DSZ_hat = np.empty((self.n, self.k), dtype=np.float32)
+        DZ_hat = np.empty((self.m, self.k), dtype=np.float32)
+        DZ_exp_logsum_hat = np.empty((self.m, self.k), dtype=np.float32)
+        SparseZIGaP.compute_Z_q_expectations(
+                DSZ_hat,
+                DZ_hat,
+                DZ_exp_logsum_hat,
                 self.log_U_hat,
-                self.log_V_hat,
+                self.log_Vprime_hat,
+                (self.p_s[:] > self.tau).astype(np.float32),
+                self.S_hat,
+                self.D_hat,
                 self.X[:].astype(np.float32))
 
         # Update parameters of U_q
-        self.a1[:] = self.alpha1[:] + np.einsum('ij,jk,ijk->ik', D_hat, S_hat, Z_hat)
-        self.a2[:] = self.alpha2[:] + np.dot(D_hat, V_hat)
+        self.a1[:] = self.alpha1[np.newaxis, ...] + DSZ_hat
+        self.a2[:] = self.alpha2[:] + np.dot(self.D_hat, self.Vprime_hat)
+        self.U_hat = self.U_q.mean()
+        self.log_U_hat = self.U_q.meanlog()
 
         # Update parameters of Vprime_q
-        self.b1[:] = self.beta1[:] + S_hat * np.einsum('ij,ijk->jk', D_hat, Z_hat)
-        self.b2[:] = self.beta2[:] + S_hat * np.dot(D_hat.T, U_hat)
+        self.b1[:] = self.beta1[np.newaxis, ...] + self.S_hat * DZ_hat
+        self.b2[:] = self.beta2[:] + self.S_hat * np.dot(self.D_hat.T, self.U_hat)
+        self.Vprime_hat = self.Vprime_q.mean()
+        self.log_Vprime_hat = self.Vprime_q.meanlog()
 
-        # Update parameters of Z_q
-        S_tilde = (self.p_s[:] > self.tau)
-        log_sum = log_U_hat.reshape(self.n, 1, self.k) + log_Vprime_hat.reshape(1, self.m, self.k)
-        self.r[:] = S_tilde[np.newaxis, ...] * np.exp(log_sum)
-        norm = self.r[:].sum(axis=2)
-        indices = (norm != 0.)
-        self.r[indices] /= norm[indices][..., np.newaxis]
+        # Update parameters of S_q
+        tmp = np.nan_to_num(DZ_exp_logsum_hat)
+        tmp -= np.nan_to_num(np.dot(self.D_hat.T, self.U_hat) * self.Vprime_hat)
+        self.p_s[:] = sigmoid(logit(self.pi_s[:])[..., np.newaxis] + tmp)
+        self.p_s[:] = np.nan_to_num(self.p_s[:])
+        self.p_s[self.pi_s[:] <= 0] = 1e-10
+        self.p_s[self.pi_s[:] >= 1] = 1. - 1e-10
+        self.S_hat = self.S_q.mean()
 
         # Update parameters of D_q
         self.p_d[:] = sigmoid(logit(self.pi_d[:])[np.newaxis, ...] \
-                - np.dot(U_hat, V_hat.T))
-        self.p_d[:, self.pi_d[:] == 0] = 1e-10
-        self.p_d[:, self.pi_d[:] == 1] = 1. - 1e-10
+                - np.dot(self.U_hat, self.Vprime_hat.T))
+        self.p_d[:, self.pi_d[:] <= 0] = 1e-10
+        self.p_d[:, self.pi_d[:] >= 1] = 1. - 1e-10
         self.p_d[self.X[:] != 0] = 1. - 1e-10
         self.D_hat = self.D_q.mean()
 
-        # Update parameters of S_q
-        tmp = -np.nan_to_num(np.einsum('ij,ijk,ijk->jk', D_hat, Z_hat, log_sum))
-        tmp += np.nan_to_num(np.dot(D_hat.T, U_hat) * Vprime_hat)
-        self.p_s[:] = sigmoid(logit(self.pi_s[:])[..., np.newaxis] + tmp)
-        self.p_s[:] = np.nan_to_num(self.p_s[:])
-        self.p_s[self.pi_s[:] == 0] = 1e-10
-        self.p_s[self.pi_s[:] == 1] = 1. - 1e-10
-        assert((0 <= self.p_s[:]).all() and (self.p_s[:] <= 1).all())
-
         # Update parameters of UV
         self.U[:] = self.U_hat
-        self.V[:] = self.V_hat
+        self.S[:] = self.S_hat
+        self.Vprime[:] = self.Vprime_hat
+        self.V.forward()
         self.UV.forward()
 
     def update_prior_hyper_parameters(self):
 
-        # Update Gamma parameters
-        GaP.update_prior_hyper_parameters()
+        # Update parameters of node U
+        self.alpha1[:] = inverse_digamma(np.log(self.alpha2[:]) + np.mean(self.log_U_hat, axis=0))
+        self.alpha1[:] = np.maximum(1e-15, np.nan_to_num(self.alpha1[:]))
+        self.alpha2[:] = self.alpha1[:] / np.mean(self.U_hat, axis=0)
+        self.alpha2[:] = np.maximum(1e-15, np.nan_to_num(self.alpha2[:]))
+
+        # Update parameters of node Vprime
+        self.beta1[:] = inverse_digamma(np.log(self.beta2[:]) + np.mean(self.log_Vprime_hat, axis=0))
+        self.beta1[:] = np.maximum(1e-15, np.nan_to_num(self.beta1[:]))
+        self.beta2[:] = self.beta1[:] / np.mean(self.Vprime_hat, axis=0)
+        self.beta2[:] = np.maximum(1e-15, np.nan_to_num(self.beta2[:]))
 
         # Update parameters of node D
         self.pi_d[:] = np.mean(self.p_d[:], axis=0)
 
         # Update parameters of node S
         self.pi_s[:] = np.mean(self.p_s[:], axis=1)
+
+    def update_expectations(self):
+        self.U_hat = self.U_q.mean()
+        self.Vprime_hat = self.Vprime_q.mean()
+        self.log_U_hat = self.U_q.meanlog()
+        self.log_Vprime_hat = self.Vprime_q.meanlog()
+        self.D_hat = self.D_q.mean()
+        self.S_hat = self.S_q.mean()

@@ -42,7 +42,7 @@ class Bernoulli(ProbabilisticNode):
         _n = self.n_samples_per_distrib
         _m = self.n_distribs
         _c = self.n_components
-        pi = pi.reshape(-1, order='C')
+        pi = pi.reshape(-1, order='C').astype(np.float32)
         out = np.tile(pi, (_n, 1))[..., np.newaxis]
         assert(out.shape == (_n, _m, _c))
         return out
