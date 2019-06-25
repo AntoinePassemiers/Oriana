@@ -5,6 +5,7 @@
 from oriana import Dimensions
 from oriana.nodes import Einsum, Multiply, Transpose
 
+import numpy as np
 from abc import abstractmethod, ABCMeta
 from sklearn.decomposition import NMF
 
@@ -45,11 +46,21 @@ class FactorModel(metaclass=ABCMeta):
         self.update_prior_hyper_parameters() # M-step
 
     def reconstruction_deviance(self):
+        """
         self.UV[:] = self.X[:]
         ll_X_given_X = self.X.loglikelihood()
+        self.U[:] = self.U_hat
+        self.V[:] = self.V_hat
         self.UV.forward()
         ll_X_given_UV = self.X.loglikelihood()
         return -2. * (ll_X_given_UV - ll_X_given_X)
+        """
+        X = self.X[:]
+        Lambda = self.UV[:]
+        A = np.empty_like(X)
+        #Lambda[Lambda == 0] = 1e-15 # TODO
+        A = np.nan_to_num(X * np.log(X / Lambda))
+        return (A - X + Lambda).sum()
 
     def explained_deviance(self):
         self.UV[:] = self.X[:]
@@ -94,6 +105,10 @@ class FactorModel(metaclass=ABCMeta):
 
     @abstractmethod
     def initialize_parameters(self):
+        pass
+
+    @abstractmethod
+    def initialize_variational_parameters(self):
         pass
 
     @abstractmethod

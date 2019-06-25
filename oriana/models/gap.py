@@ -45,24 +45,8 @@ class GaP(FactorModel):
 
     def initialize_parameters(self):
 
-        # Initialize parameters of U_q
-        if self.use_factors:
-            self.a1[:] = self.U[:]
-        else:
-            self.a1[:] = np.random.gamma(1., size=(self.n, self.k))
-        epsilon = max(np.max(self.U[:]), np.max(self.V[:]))
-        self.a1[:] += np.random.uniform(-epsilon, epsilon, size=self.a1[:].shape)
-        self.a1[:] = np.maximum(1e-15, np.nan_to_num(self.a1[:]))
-        self.a2[:] = np.ones((self.n, self.k))
-
-        # Initialize parameters of Vprime_q
-        if self.use_factors:
-            self.b1[:] = self.V[:]
-        else:
-            self.b1[:] = np.random.gamma(1., size=(self.m, self.k))
-        self.b1[:] += np.random.uniform(-epsilon, epsilon, size=self.b1[:].shape)
-        self.b1[:] = np.maximum(1e-15, np.nan_to_num(self.b1[:]))
-        self.b2[:] = np.ones((self.m, self.k))
+        # Initialize prior hyper-parameters
+        self.initialize_prior_hyper_parameters()
 
         # Update expectations
         self.U_hat = self.U_q.mean()
@@ -73,8 +57,31 @@ class GaP(FactorModel):
         # Update hyper-parameters
         self.update_prior_hyper_parameters()
 
+    def initialize_variational_parameters(self):
+
+        # Initialize parameters of U_q
+        if self.use_factors:
+            self.a1[:] = self.U[:]
+        else:
+            self.a1[:] = np.random.gamma(1., size=(self.n, self.k))
+        epsilon = max(np.max(self.U[:]), np.max(self.V[:]))
+        #self.a1[:] += np.random.uniform(-epsilon, epsilon, size=self.a1[:].shape)
+        self.a1[:] = np.maximum(1e-15, np.nan_to_num(self.a1[:]))
+        self.a2[:] = np.ones((self.n, self.k))
+
+        # Initialize parameters of Vprime_q
+        if self.use_factors:
+            self.b1[:] = self.V[:]
+        else:
+            self.b1[:] = np.random.gamma(1., size=(self.m, self.k))
+        #self.b1[:] += np.random.uniform(-epsilon, epsilon, size=self.b1[:].shape)
+        self.b1[:] = np.maximum(1e-15, np.nan_to_num(self.b1[:]))
+        self.b2[:] = np.ones((self.m, self.k))
+
     @numba.jit('void(f4[:, :], f4[:, :], f4[:, :], f4[:, :], f4[:, :])')
     def compute_Z_q_expectations(Z_hat_i, Z_hat_j, log_U_hat, log_V_hat, X):
+        Z_hat_i[:, :] = 0
+        Z_hat_j[:, :] = 0
         n, p, latent_dim = log_U_hat.shape[0], log_V_hat.shape[0], log_U_hat.shape[1]
         for i in range(n):
             for j in range(p):
@@ -101,27 +108,34 @@ class GaP(FactorModel):
         # Update parameters of U_q
         self.a1[:] = self.alpha1[np.newaxis, ...] + self.Z_hat_i
         self.a2[:] = self.alpha2[:] + self.V_hat.sum(axis=0)
-        self.a1[:] = np.maximum(1e-7, np.nan_to_num(self.a1[:]))
+        self.a1[:] = np.maximum(1e-15, np.nan_to_num(self.a1[:]))
+        self.a2[:] = np.maximum(1e-15, np.nan_to_num(self.a2[:]))
         self.U_hat = self.U_q.mean()
         self.log_U_hat = self.U_q.meanlog()
-        print(self.a1[:])
 
         # Update parameters of Vprime_q
         self.b1[:] = self.beta1[np.newaxis, ...] + self.Z_hat_j
         self.b2[:] = self.beta2[:] + self.U_hat.sum(axis=0)
-        self.b1[:] = np.maximum(1e-7, np.nan_to_num(self.b1[:]))
+        self.b1[:] = np.maximum(1e-15, np.nan_to_num(self.b1[:]))
+        self.b2[:] = np.maximum(1e-15, np.nan_to_num(self.b2[:]))
         self.V_hat = self.V_q.mean()
         self.log_V_hat = self.V_q.meanlog()
 
         # Update parameters of UV
+        self.U[:] = self.U_hat
+        self.V[:] = self.V_hat
         self.UV.forward()
 
     def update_prior_hyper_parameters(self):
 
         # Update parameters of node U
         self.alpha1[:] = inverse_digamma(np.log(self.alpha2[:]) + np.mean(self.log_U_hat, axis=0))
+        self.alpha1[:] = np.maximum(1e-15, np.nan_to_num(self.alpha1[:]))
         self.alpha2[:] = self.alpha1[:] / np.mean(self.U_hat, axis=0)
+        self.alpha2[:] = np.maximum(1e-15, np.nan_to_num(self.alpha2[:]))
 
         # Update parameters of node Vprime
         self.beta1[:] = inverse_digamma(np.log(self.beta2[:]) + np.mean(self.log_V_hat, axis=0))
+        self.beta1[:] = np.maximum(1e-15, np.nan_to_num(self.beta1[:]))
         self.beta2[:] = self.beta1[:] / np.mean(self.V_hat, axis=0)
+        self.beta2[:] = np.maximum(1e-15, np.nan_to_num(self.beta2[:]))

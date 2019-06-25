@@ -40,15 +40,10 @@ class SparseZIGaP(GaP):
         X.buffer = cmatrix.as_array()
         return X
 
-    def define_variational_distribution(self, tau=0.5):
-
-        # Initialize node Z_q
-        r = np.random.rand(self.n, self.m, self.k)
-        self.r = Parameter(r / r.sum(axis=2)[..., np.newaxis])
-        self.Z_q = Multinomial(self.X, self.r, self.dims('n,m,k ~ d,d,c'))
+    def define_variational_distribution(self):
 
         # Initialize node S_q
-        self.p_s = Parameter(np.full((self.m, self.k), tau))
+        self.p_s = Parameter(np.full((self.m, self.k), self.tau))
         self.S_q = Bernoulli(self.p_s, self.dims('m,k ~ d,d'))
 
         # Initialize node D_q
@@ -65,87 +60,51 @@ class SparseZIGaP(GaP):
         self.b2 = Parameter(np.ones((self.m, self.k)))
         self.Vprime_q = Gamma(self.b1, self.b2, self.dims('m,k ~ d,d'))
 
-    def initialize_variational_parameters(self, use_factors=True, tau=0.5):
+    def initialize_variational_parameters(self):
 
-        # Initialize parameters of Z_q
-        r = np.random.rand(self.n, self.m, self.k)
-        self.r[:] = r / r.sum(axis=2)[..., np.newaxis]
+        # Initialize parameters of U and Vprime
+        GaP.initialize_variational_parameters(self)
 
         # Initialize parameters of S_q
         self.p_s[:] = np.ones((self.m, self.k))
 
         # Initialize parameters of D_q
-        self.p_d[:] = np.ones((self.n, self.m)) # (self.X[:] > 0).astype(np.float)
+        self.p_d[:] = (self.X[:] > 0).astype(np.float)
 
-        # Initialize parameters of U_q
-        if use_factors:
-            self.a1[:] = self.U[:]
-        else:
-            self.a1[:] = np.random.gamma(1., size=(self.n, self.k))
-        self.a2[:] = np.ones((self.n, self.k))
+    def initialize_parameters(self):
 
-        # Initialize parameters of Vprime_q
-        if use_factors:
-            self.b1[:] = self.V[:]
-        else:
-            self.b1[:] = np.random.gamma(1., size=(self.m, self.k))
-        self.b2[:] = np.ones((self.m, self.k))
+        # Initialize variational parameters
+        self.initialize_variational_parameters()
 
-    def initialize_prior_hyper_parameters(self):
+        # Update expectations
+        self.U_hat = self.U_q.mean()
+        self.Vprime_hat = self.Vprime_q.mean()
+        self.log_U_hat = self.U_q.meanlog()
+        self.log_V_hat = self.V_q.meanlog()
+        self.D_hat = self.D_q.mean()
 
-        # Compute expectations
-        U_hat = self.U_q.mean()
-        Vprime_hat = self.Vprime_q.mean()
-        log_U_hat = self.U_q.meanlog()
-        log_Vprime_hat = self.Vprime_q.meanlog()
-
-        # Initialize parameters of U
-        self.alpha1[:] = np.ones(self.k) * 16.
-        self.alpha2[:] = np.ones(self.k) * 4.
-
-        # Initialize parameters of Vprime
-        self.beta1[:] = np.ones(self.k) * 16.
-        self.beta2[:] = np.ones(self.k) * 4.
-
-        # Initialize parameters of D
-        self.pi_d[:] = np.mean(self.p_d[:], axis=0)
-
-        # Initialize parameters of S
-        self.pi_s[:] = np.mean(self.p_s[:], axis=1)
+        # Update hyper-parameters
+        self.update_prior_hyper_parameters()
 
     def update_variational_parameters(self):
 
-        assert((0 <= self.r[:]).all() and (self.r[:] <= 1).all())
-
-        # Compute expectations
-        U_hat = self.U_q.mean()
-        S_hat = self.S_q.mean()
-        Vprime_hat = self.Vprime_q.mean()
-        V_hat = S_hat * Vprime_hat
-        log_U_hat = self.U_q.meanlog()
-        log_Vprime_hat = self.Vprime_q.meanlog()
-        D_hat = self.D_q.mean()
-        Z_hat = self.Z_q.mean()
-
-        # Update nodes
-        self.U[:] = U_hat
-        self.S[:] = (S_hat > self.tau).astype(np.float)
-        self.Vprime[:] = Vprime_hat
-        self.V[:] = V_hat
-        self.D[:] = D_hat
-        self.Z[:] = Z_hat
-        self.UV.forward()
+        # Update parameters of Z_q
+        self.Z_hat_i = np.empty((self.n, self.k), dtype=np.float32)
+        self.Z_hat_j = np.empty((self.m, self.k), dtype=np.float32)
+        GaP.compute_Z_q_expectations(
+                self.Z_hat_i,
+                self.Z_hat_j,
+                self.log_U_hat,
+                self.log_V_hat,
+                self.X[:].astype(np.float32))
 
         # Update parameters of U_q
-        assert((self.p_d[:] == D_hat).all())
         self.a1[:] = self.alpha1[:] + np.einsum('ij,jk,ijk->ik', D_hat, S_hat, Z_hat)
         self.a2[:] = self.alpha2[:] + np.dot(D_hat, V_hat)
-        assert((self.a1[:] > 0).all())
 
         # Update parameters of Vprime_q
         self.b1[:] = self.beta1[:] + S_hat * np.einsum('ij,ijk->jk', D_hat, Z_hat)
         self.b2[:] = self.beta2[:] + S_hat * np.dot(D_hat.T, U_hat)
-        assert((self.b1[:] > 0).all())
 
         # Update parameters of Z_q
         S_tilde = (self.p_s[:] > self.tau)
@@ -154,7 +113,6 @@ class SparseZIGaP(GaP):
         norm = self.r[:].sum(axis=2)
         indices = (norm != 0.)
         self.r[indices] /= norm[indices][..., np.newaxis]
-        assert((0 <= self.r[:]).all() and (self.r[:] <= 1).all())
 
         # Update parameters of D_q
         self.p_d[:] = sigmoid(logit(self.pi_d[:])[np.newaxis, ...] \
@@ -162,7 +120,7 @@ class SparseZIGaP(GaP):
         self.p_d[:, self.pi_d[:] == 0] = 1e-10
         self.p_d[:, self.pi_d[:] == 1] = 1. - 1e-10
         self.p_d[self.X[:] != 0] = 1. - 1e-10
-        assert((0 <= self.p_d[:]).all() and (self.p_d[:] <= 1).all())
+        self.D_hat = self.D_q.mean()
 
         # Update parameters of S_q
         tmp = -np.nan_to_num(np.einsum('ij,ijk,ijk->jk', D_hat, Z_hat, log_sum))
@@ -173,69 +131,18 @@ class SparseZIGaP(GaP):
         self.p_s[self.pi_s[:] == 1] = 1. - 1e-10
         assert((0 <= self.p_s[:]).all() and (self.p_s[:] <= 1).all())
 
+        # Update parameters of UV
+        self.U[:] = self.U_hat
+        self.V[:] = self.V_hat
+        self.UV.forward()
+
     def update_prior_hyper_parameters(self):
 
-        # Compute expectations
-        U_hat = self.U_q.mean()
-        Vprime_hat = self.Vprime_q.mean()
-        log_U_hat = self.U_q.meanlog()
-        log_Vprime_hat = self.Vprime_q.meanlog()
-
-        # Update parameters of node U
-        self.alpha1[:] = inverse_digamma(np.log(self.alpha2[:]) + np.mean(log_U_hat, axis=0))
-        self.alpha2[:] = self.alpha1[:] / np.mean(U_hat, axis=0)
-
-        # Update parameters of node Vprime
-        self.beta1[:] = inverse_digamma(np.log(self.beta2[:]) + np.mean(log_Vprime_hat, axis=0))
-        self.beta2[:] = self.beta1[:] / np.mean(Vprime_hat, axis=0)
+        # Update Gamma parameters
+        GaP.update_prior_hyper_parameters()
 
         # Update parameters of node D
         self.pi_d[:] = np.mean(self.p_d[:], axis=0)
 
         # Update parameters of node S
         self.pi_s[:] = np.mean(self.p_s[:], axis=1)
-
-    def step(self):
-        self.update_variational_parameters() # E-step
-        self.update_prior_hyper_parameters() # M-step
-
-    def reconstruction_deviance(self):
-        X = self.X.asarray()
-        U = self.U.asarray()
-        D = self.D.asarray()
-        V = self.V.asarray()
-
-        Lambda_mat = np.dot(U, V.T) * D
-
-        print(np.round(Lambda_mat).astype(np.int))
-
-        """
-        A = np.empty_like(X)
-        valid = (X != 0)
-        A[~valid] = 0
-        #Lambda[Lambda == 0] = 1e-15 # TODO
-        A[valid] = X[valid] * np.log(X[valid] / Lambda[valid])
-        return (A - X + Lambda).sum()
-        """
-        Lambda = Parameter(X[:])
-        X_node = Poisson(Lambda, self.dims('n,m ~ d,d'), name='X')
-        ll_X_given_X = X_node.loglikelihood()
-
-        Lambda[:] = Lambda_mat
-        ll_X_given_UV = X_node.loglikelihood()
-
-        return -2. * (ll_X_given_UV - ll_X_given_X)
-
-    def frobenius_norm(self):
-        Lambda = np.dot(self.U.asarray(), self.V.asarray().T) * self.D.asarray()
-        frob = np.sqrt(((Lambda.flatten() - self.X.asarray().flatten()) ** 2.).sum())
-        return frob
-
-    def loglikelihood(self):
-        self.UV.forward()
-        ll = 0.
-        ll += self.D.loglikelihood()
-        ll += self.U.loglikelihood()
-        ll += self.Vprime.loglikelihood()
-        ll += self.Z.loglikelihood()
-        return ll
