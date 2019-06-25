@@ -48,8 +48,12 @@ def test_multinomial_mean():
     dims = Dimensions({ 'n': 2, 'm': 2, 'k': 2 })
     mult = Multinomial(n, p, dims('n,m,k ~ d,d,c'))
     x = mult.mean()
-    y = np.asarray([[[ 0.0,  0.0], [0.21, 0.79]],
-                    [[1.29, 1.71], [0.89, 0.11]]])
+    y = p.asarray()
+    print(y[:].shape, n[:].shape)
+    for i in range(2):
+        for j in range(2):
+            for k in range(2):
+                y[i, j, k] *= n[i, j]
     assert_almost_equal(x, y)
 
 
@@ -74,6 +78,7 @@ def test_gamma_mean_log():
                     [[0.7, 2.3], [0.7, 2.3]]]))
     assert_almost_equal(x, y)
 
+
 def test_node_forward():
     n = Parameter([[0, 1], [3, 1]])
     p = Parameter([[[0.50, 0.50], [0.21, 0.79]],
@@ -86,7 +91,6 @@ def test_node_forward():
     prod.forward()
     mult1.sample()
     mult2.sample()
-    assert not np.allclose(prod[:], mult1[:] * mult2[:])
+    assert(not np.allclose(prod[:], mult1[:] * mult2[:]))
     prod.forward()
     assert_almost_equal(prod[:], mult1[:] * mult2[:])
-

@@ -63,8 +63,9 @@ class Node(metaclass=ABCMeta):
 
 class DeterministicNode(Node, metaclass=ABCMeta):
 
-    def __init__(self, *parents):
+    def __init__(self, *parents, name=''):
         Node.__init__(self, *parents)
+        self.name = name
         self._buffer = None
 
     def sample(self, recursive=False):

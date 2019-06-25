@@ -37,17 +37,26 @@ if __name__ == '__main__':
 
 
     history = list()
-    zigap = GaP(counts, k=2)
-    divergence = zigap.reconstruction_deviance()
-    loglikelihood = zigap.loglikelihood()
-    print('Initial Bregman divergence: %f' % divergence)
-    history.append([divergence, loglikelihood])
+    model = GaP(counts, k=2)
+    best_divergence = model.reconstruction_deviance()
+    loglikelihood = model.loglikelihood()
+    print('Initial Bregman divergence: %f' % best_divergence)
+    history.append([best_divergence, loglikelihood])
+    U, V = model.factors()
     for iteration in range(500):
-        zigap.step()
-        divergence = zigap.reconstruction_deviance()
-        loglikelihood = zigap.loglikelihood()
+        model.step()
+        divergence = model.reconstruction_deviance()
+        loglikelihood = model.loglikelihood()
         print('Iteration %i - Bregman divergence: %f' % (iteration + 1, divergence))
-        history.append([divergence, loglikelihood])
+
+        if divergence < best_divergence:
+            best_divergence = divergence
+            history.append([divergence, loglikelihood])
+            U, V = model.factors()
+        elif divergence > best_divergence:
+            break
+    print(U)
+
     history = np.asarray(history)
 
 

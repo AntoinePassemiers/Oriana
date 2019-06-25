@@ -3,6 +3,7 @@
 # author : Antoine Passemiers
 
 from oriana import Dimensions, Parameter
+from oriana.models import FactorModel
 from oriana.nodes import Poisson, Gamma, Bernoulli, Multinomial
 from oriana.utils import inverse_digamma, sigmoid, logit
 from oriana.nodes import Einsum, Multiply, Transpose
@@ -11,34 +12,10 @@ import numpy as np
 from sklearn.decomposition import NMF
 
 
-class SparseZIGaP:
+class SparseZIGaP(FactorModel):
 
-    def __init__(self, cmatrix, k=2, tau=0.5, use_factors=True):
-
-        # Count matrix
-        self.cmatrix = cmatrix
-
-        # Define dimensions
-        self.k = k
-        self.n = cmatrix.shape[0]
-        self.m = self.p = cmatrix.shape[1]
-        self.dims = Dimensions({ 'n': self.n, 'm': self.m, 'p': self.p, 'k': self.k })
-
-        # Define model
-        self.build_model()
-
-        # Define corresponding variational distribution
-        self.define_variational_distribution(tau=tau)
-
-        # Initialize parameters
-        self.tau = tau
-        self.use_factors = use_factors
-        model = NMF(n_components=self.k)
-        self.U[:] = model.fit_transform(self.X[:])
-        self.V.buffer = model.components_.T
-        self.Vprime[:] = model.components_.T
-        self.initialize_variational_parameters(use_factors=use_factors, tau=tau)
-        self.initialize_prior_hyper_parameters()
+    def __init__(self, *args, **kwargs):
+        FactorModel.__init__(self, *args, **kwargs)
 
     def build_model(self):
         # Initialize node S
