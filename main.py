@@ -17,12 +17,13 @@ DATA_FOLDER = os.path.join(ROOT, 'data')
 if __name__ == '__main__':
 
 
-    #filepath = os.path.join(DATA_FOLDER, 'llorens.csv')
-    #counts = CountMatrix.from_csv(filepath).T
-    #print('Shape of X: %s' % str(counts.shape))
+    filepath = os.path.join(DATA_FOLDER, 'llorens.csv')
+    counts = CountMatrix.from_csv(filepath).T
+    print('Shape of X: %s' % str(counts.shape))
 
     # TODO: parse it from csv file
     # once everything works
+    """
     counts = CountMatrix(np.array(
                 [[ 0,  0,  1,  0,  0],
                  [ 2,  0,  2,  3,  0],
@@ -34,28 +35,28 @@ if __name__ == '__main__':
                  [ 6,  1,  2,  5,  2],
                  [ 6,  0,  0,  6,  0],
                  [ 9,  0,  7,  3,  0]]))
-
+    """
 
     history = list()
-    model = GaP(counts, k=2)
+    model = GaP(counts, k=2, use_factors=True)
     best_divergence = model.reconstruction_deviance()
     loglikelihood = model.loglikelihood()
     print('Initial Bregman divergence: %f' % best_divergence)
     history.append([best_divergence, loglikelihood])
     U, V = model.factors()
-    for iteration in range(500):
+    for iteration in range(80):
         model.step()
         divergence = model.reconstruction_deviance()
         loglikelihood = model.loglikelihood()
         print('Iteration %i - Bregman divergence: %f' % (iteration + 1, divergence))
 
-        if divergence < best_divergence:
+        if True:#divergence <= best_divergence:
             best_divergence = divergence
             history.append([divergence, loglikelihood])
             U, V = model.factors()
         elif divergence > best_divergence:
-            break
-    print(U)
+            pass
+    print(np.round(np.dot(U, V.T)).astype(np.int))
 
     history = np.asarray(history)
 

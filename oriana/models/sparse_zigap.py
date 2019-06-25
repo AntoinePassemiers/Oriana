@@ -3,7 +3,7 @@
 # author : Antoine Passemiers
 
 from oriana import Dimensions, Parameter
-from oriana.models import FactorModel
+from oriana.models import GaP
 from oriana.nodes import Poisson, Gamma, Bernoulli, Multinomial
 from oriana.utils import inverse_digamma, sigmoid, logit
 from oriana.nodes import Einsum, Multiply, Transpose
@@ -12,42 +12,33 @@ import numpy as np
 from sklearn.decomposition import NMF
 
 
-class SparseZIGaP(FactorModel):
+class SparseZIGaP(GaP):
 
     def __init__(self, *args, **kwargs):
-        FactorModel.__init__(self, *args, **kwargs)
+        GaP.__init__(self, *args, **kwargs)
 
-    def build_model(self):
-        # Initialize node S
-        self.pi_s = Parameter(np.random.rand(self.m))
-        self.S = Bernoulli(self.pi_s, self.dims('m,k ~ d,s'), name='S')
-
-        # Initialize node D
-        self.pi_d = Parameter(np.random.rand(self.p))
-        self.D = Bernoulli(self.pi_d, self.dims('n,p ~ s,d'), name='D')
-
-        # Initialize node U
+    def build_u_node(self):
         self.alpha1 = Parameter(np.random.gamma(2., size=self.k))
         self.alpha2 = Parameter(np.ones(self.k))
-        self.U = Gamma(self.alpha1, self.alpha2, self.dims('n,k ~ s,d'), name='U')
+        return Gamma(self.alpha1, self.alpha2, self.dims('n,k ~ s,d'), name='U')
 
-        # Initialize node Vprime
+    def build_v_node(self):
+        self.pi_s = Parameter(np.random.rand(self.m))
+        self.S = Bernoulli(self.pi_s, self.dims('m,k ~ d,s'), name='S')
         self.beta1 = Parameter(np.random.gamma(2., size=self.k))
         self.beta2 = Parameter(np.ones(self.k))
         self.Vprime = Gamma(self.beta1, self.beta2, self.dims('m,k ~ s,d'), name='Vprime')
+        U = Multiply(self.S, self.Vprime)
+        U.forward()
+        return U
 
-        # Initialize node V
-        self.V = Multiply(self.S, self.Vprime)
-
-        # Initialize node UV
-        self.UV = Einsum('nk,mk->nmk', self.U, self.V)
-
-        # Initialize node Z
-        self.Z = Poisson(self.UV, self.dims('n,m,k ~ d,d,d'), name='Z')
-
-        # Initialize node X
-        self.X = Einsum('nmk->nm', self.Z)
-        self.X.buffer = self.cmatrix.as_array()
+    def build_x_node(self, cmatrix, UV):
+        self.pi_d = Parameter(np.random.rand(self.p))
+        self.D = Bernoulli(self.pi_d, self.dims('n,p ~ s,d'), name='D')
+        self.L = Poisson(UV, self.dims('n,m ~ d,d'), name='X')
+        X = Multiply(self.L, self.D)
+        X.buffer = cmatrix.as_array()
+        return X
 
     def define_variational_distribution(self, tau=0.5):
 

@@ -63,4 +63,5 @@ class Poisson(ProbabilisticNode):
 
     def _logp(self, samples, l):
         l = l.reshape(-1, order='C')
-        return -l + samples * log(l) + log(factorial(np.floor(samples)))
+        logps = -l + samples * log(l) + log(factorial(np.floor(samples)))
+        return logps

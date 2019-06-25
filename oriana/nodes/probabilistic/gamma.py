@@ -53,8 +53,8 @@ class Gamma(ProbabilisticNode):
         _n = self.n_samples_per_distrib
         _m = self.n_distribs
         _c = self.n_components
-        alpha = alpha.reshape(-1, order='C')
-        beta = beta.reshape(-1, order='C')
+        alpha = alpha.reshape(-1, order='C').astype(np.float32)
+        beta = beta.reshape(-1, order='C').astype(np.float32)
         avglog = digamma(alpha) - np.log(beta)
         out = np.tile(avglog, (_n, 1))[..., np.newaxis]
         assert(out.shape == (_n, _m, _c))

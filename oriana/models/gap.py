@@ -8,6 +8,7 @@ from oriana.nodes import Poisson, Gamma, Bernoulli, Multinomial
 from oriana.utils import inverse_digamma, sigmoid, logit
 
 import numpy as np
+import numba
 
 
 class GaP(FactorModel):
@@ -15,16 +16,13 @@ class GaP(FactorModel):
     def __init__(self, *args, **kwargs):
         FactorModel.__init__(self, *args, **kwargs)
 
-    def build_model(self):
-        pass
-
     def build_u_node(self):
-        self.alpha1 = Parameter(np.random.gamma(2., size=self.k))
+        self.alpha1 = Parameter(np.ones(self.k))
         self.alpha2 = Parameter(np.ones(self.k))
         return Gamma(self.alpha1, self.alpha2, self.dims('n,k ~ s,d'), name='U')
 
     def build_v_node(self):
-        self.beta1 = Parameter(np.random.gamma(2., size=self.k))
+        self.beta1 = Parameter(np.ones(self.k))
         self.beta2 = Parameter(np.ones(self.k))
         return Gamma(self.beta1, self.beta2, self.dims('m,k ~ s,d'), name='V')
 
@@ -34,11 +32,6 @@ class GaP(FactorModel):
         return X
 
     def define_variational_distribution(self):
-
-        # Initialize node Z_q
-        r = np.random.rand(self.n, self.m, self.k)
-        self.r = Parameter(r / r.sum(axis=2)[..., np.newaxis])
-        self.Z_q = Multinomial(self.X, self.r, self.dims('n,m,k ~ d,d,c'))
 
         # Initialize node U_q
         self.a1 = Parameter(np.random.gamma(2., size=(self.n, self.k)))
@@ -50,17 +43,16 @@ class GaP(FactorModel):
         self.b2 = Parameter(np.ones((self.m, self.k)))
         self.V_q = Gamma(self.b1, self.b2, self.dims('m,k ~ d,d'))
 
-    def initialize_variational_parameters(self):
-
-        # Initialize parameters of Z_q
-        r = np.ones((self.n, self.m, self.k))
-        self.r[:] = r / r.sum(axis=2)[..., np.newaxis]
+    def initialize_parameters(self):
 
         # Initialize parameters of U_q
         if self.use_factors:
             self.a1[:] = self.U[:]
         else:
             self.a1[:] = np.random.gamma(1., size=(self.n, self.k))
+        epsilon = max(np.max(self.U[:]), np.max(self.V[:]))
+        self.a1[:] += np.random.uniform(-epsilon, epsilon, size=self.a1[:].shape)
+        self.a1[:] = np.maximum(1e-15, np.nan_to_num(self.a1[:]))
         self.a2[:] = np.ones((self.n, self.k))
 
         # Initialize parameters of Vprime_q
@@ -68,70 +60,68 @@ class GaP(FactorModel):
             self.b1[:] = self.V[:]
         else:
             self.b1[:] = np.random.gamma(1., size=(self.m, self.k))
+        self.b1[:] += np.random.uniform(-epsilon, epsilon, size=self.b1[:].shape)
+        self.b1[:] = np.maximum(1e-15, np.nan_to_num(self.b1[:]))
         self.b2[:] = np.ones((self.m, self.k))
 
-    def initialize_prior_hyper_parameters(self):
+        # Update expectations
+        self.U_hat = self.U_q.mean()
+        self.V_hat = self.V_q.mean()
+        self.log_U_hat = self.U_q.meanlog()
+        self.log_V_hat = self.V_q.meanlog()
 
-        # Compute expectations
-        U_hat = self.U_q.mean()
-        V_hat = self.V_q.mean()
-        log_U_hat = self.U_q.meanlog()
-        log_V_hat = self.V_q.meanlog()
+        # Update hyper-parameters
+        self.update_prior_hyper_parameters()
 
-        # Initialize parameters of U
-        self.alpha1[:] = np.ones(self.k) * 16.
-        self.alpha2[:] = np.ones(self.k) * 4.
-
-        # Initialize parameters of Vprime
-        self.beta1[:] = np.ones(self.k) * 16.
-        self.beta2[:] = np.ones(self.k) * 4.
+    @numba.jit('void(f4[:, :], f4[:, :], f4[:, :], f4[:, :], f4[:, :])')
+    def compute_Z_q_expectations(Z_hat_i, Z_hat_j, log_U_hat, log_V_hat, X):
+        n, p, latent_dim = log_U_hat.shape[0], log_V_hat.shape[0], log_U_hat.shape[1]
+        for i in range(n):
+            for j in range(p):
+                exp_logsum = np.exp(log_U_hat[i, :] + log_V_hat[j, :])
+                den = exp_logsum.sum()
+                den = den if den > 0 else 1
+                for k in range(latent_dim):
+                    expectation = X[i, j] * exp_logsum[k] / den
+                    Z_hat_j[j, k] += expectation
+                    Z_hat_i[i, k] += expectation
 
     def update_variational_parameters(self):
 
-        # Compute expectations
-        U_hat = self.U_q.mean()
-        V_hat = self.V_q.mean()
-        log_U_hat = self.U_q.meanlog()
-        log_V_hat = self.V_q.meanlog()
-        Z_hat = self.Z_q.mean()
-
-        # Update nodes
-        self.U[:] = U_hat
-        self.V[:] = V_hat
-        self.UV.forward()
+        # Update parameters of Z_q
+        self.Z_hat_i = np.empty((self.n, self.k), dtype=np.float32)
+        self.Z_hat_j = np.empty((self.m, self.k), dtype=np.float32)
+        GaP.compute_Z_q_expectations(
+                self.Z_hat_i,
+                self.Z_hat_j,
+                self.log_U_hat,
+                self.log_V_hat,
+                self.X[:].astype(np.float32))
 
         # Update parameters of U_q
-        self.a1[:] = self.alpha1[:] + Z_hat.sum(axis=1)
-        self.a2[:] = self.alpha2[:] + V_hat.sum(axis=0)
-        self.a1[:] = np.maximum(1e-15, self.a1[:])
+        self.a1[:] = self.alpha1[np.newaxis, ...] + self.Z_hat_i
+        self.a2[:] = self.alpha2[:] + self.V_hat.sum(axis=0)
+        self.a1[:] = np.maximum(1e-7, np.nan_to_num(self.a1[:]))
+        self.U_hat = self.U_q.mean()
+        self.log_U_hat = self.U_q.meanlog()
+        print(self.a1[:])
 
         # Update parameters of Vprime_q
-        print(self.b1[:].shape)
-        self.b1[:] = self.beta1[:] + Z_hat.sum(axis=0)
-        self.b2[:] = self.beta2[:] + U_hat.sum(axis=0)
-        self.b1[:] = np.maximum(1e-15, self.b1[:])
+        self.b1[:] = self.beta1[np.newaxis, ...] + self.Z_hat_j
+        self.b2[:] = self.beta2[:] + self.U_hat.sum(axis=0)
+        self.b1[:] = np.maximum(1e-7, np.nan_to_num(self.b1[:]))
+        self.V_hat = self.V_q.mean()
+        self.log_V_hat = self.V_q.meanlog()
 
-        # Update parameters of Z_q
-        log_sum = log_U_hat.reshape(self.n, 1, self.k) + log_V_hat.reshape(1, self.m, self.k)
-        max_values = log_sum.max(axis=2)
-        self.r[:] = np.exp(log_sum)
-        norm = self.r[:].sum(axis=2)
-        indices = (norm != 0.)
-        self.r[indices] /= norm[indices][..., np.newaxis]
-        assert((0 <= self.r[:]).all() and (self.r[:] <= 1).all())
+        # Update parameters of UV
+        self.UV.forward()
 
     def update_prior_hyper_parameters(self):
 
-        # Compute expectations
-        U_hat = self.U_q.mean()
-        V_hat = self.V_q.mean()
-        log_U_hat = self.U_q.meanlog()
-        log_V_hat = self.V_q.meanlog()
-
         # Update parameters of node U
-        self.alpha1[:] = inverse_digamma(np.log(self.alpha2[:]) + np.mean(log_U_hat, axis=0))
-        self.alpha2[:] = self.alpha1[:] / np.mean(U_hat, axis=0)
+        self.alpha1[:] = inverse_digamma(np.log(self.alpha2[:]) + np.mean(self.log_U_hat, axis=0))
+        self.alpha2[:] = self.alpha1[:] / np.mean(self.U_hat, axis=0)
 
         # Update parameters of node Vprime
-        self.beta1[:] = inverse_digamma(np.log(self.beta2[:]) + np.mean(log_V_hat, axis=0))
-        self.beta2[:] = self.beta1[:] / np.mean(V_hat, axis=0)
+        self.beta1[:] = inverse_digamma(np.log(self.beta2[:]) + np.mean(self.log_V_hat, axis=0))
+        self.beta2[:] = self.beta1[:] / np.mean(self.V_hat, axis=0)

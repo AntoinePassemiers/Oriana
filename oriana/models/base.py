@@ -23,7 +23,6 @@ class FactorModel(metaclass=ABCMeta):
         self.dims = Dimensions({ 'n': self.n, 'm': self.m, 'p': self.p, 'k': self.k })
 
         # Define model
-        self.build_model()
         self.U = self.build_u_node()
         self.V = self.build_v_node()
         self.UV = Einsum('nk,mk->nm', self.U, self.V, name='UV')
@@ -39,8 +38,7 @@ class FactorModel(metaclass=ABCMeta):
         model = NMF(n_components=self.k)
         self.U[:] = model.fit_transform(self.X[:])
         self.V.buffer = model.components_.T
-        self.initialize_variational_parameters()
-        self.initialize_prior_hyper_parameters()
+        self.initialize_parameters()
 
     def step(self):
         self.update_variational_parameters() # E-step
@@ -79,10 +77,6 @@ class FactorModel(metaclass=ABCMeta):
         return self.U[:], self.V[:]
 
     @abstractmethod
-    def build_model(self):
-        pass
-
-    @abstractmethod
     def build_u_node(self):
         pass
 
@@ -99,11 +93,7 @@ class FactorModel(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def initialize_variational_parameters(self):
-        pass
-
-    @abstractmethod
-    def initialize_prior_hyper_parameters(self):
+    def initialize_parameters(self):
         pass
 
     @abstractmethod
