@@ -33,7 +33,7 @@ if __name__ == '__main__':
         divergence = model.reconstruction_deviance()
         print('Iteration %i - Bregman divergence: %f' % (iteration + 1, divergence))
 
-        if divergence <= best_divergence:
+        if True:#divergence <= best_divergence:
             best_divergence = divergence
             history.append(divergence)
             U, V = model.factors()

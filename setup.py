@@ -24,4 +24,5 @@ setup(
     include_package_data=False,
     install_requires=[
         'numpy >= 1.13.3',
-        'scipy >= 1.1.0'])
+        'scipy >= 1.1.0',
+        'numba >= 0.41.0'])
