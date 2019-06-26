@@ -10,7 +10,6 @@ from oriana.nodes import Einsum, Multiply, Transpose
 
 import numba
 import numpy as np
-from sklearn.decomposition import NMF
 
 
 class SparseZIGaP(FactorModel):
