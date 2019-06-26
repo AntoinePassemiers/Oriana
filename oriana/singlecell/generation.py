@@ -15,11 +15,14 @@ def generate_u(n, k, n_groups=3, theta=0.5):
     EMPTY = -1
     U = np.full((n, k), EMPTY, dtype=np.float)
 
+    labels = np.empty(n, dtype=np.int)
     for g in range(n_groups):
         i_start = block_row_indices[g]
         i_end = block_row_indices[g + 1]
         j_start = block_col_indices[g]
         j_end = block_col_indices[g + 1]
+
+        labels[i_start:i_end] = g
 
         block_height = i_end - i_start
         block_width = j_end - j_start
@@ -31,7 +34,7 @@ def generate_u(n, k, n_groups=3, theta=0.5):
     alpha_bar = np.mean(alpha)
     U[U == EMPTY] = np.random.gamma(
             1., 1. / ((1. - theta) * alpha_bar), size=(n, k))[U == EMPTY]
-    return U
+    return U, labels
 
 
 def generate_v(m, k, sparsity_degree=0.2, beta=80, theta=0.8, n_groups=2):
@@ -65,9 +68,12 @@ def generate_v(m, k, sparsity_degree=0.2, beta=80, theta=0.8, n_groups=2):
 def generate_factor_matrices(n, m, k, sparsity_degree_in_v=0.5,
                              beta=80, theta=0.8, n_groups=2,
                              zero_inflation_level=0.5):
-    U = generate_u(n, k, n_groups=n_groups, theta=theta)
+    U, labels = generate_u(n, k, n_groups=n_groups, theta=theta)
     V = generate_v(m, k, sparsity_degree=sparsity_degree_in_v,
                    beta=beta, theta=theta, n_groups=n_groups)
+
+    # TODO: shuffle cells and shuffle genes
+
     Lambda = np.dot(U, V.T)
 
     # Randomly generate dropout probabilities with mean `zero_inflation_level`
@@ -77,4 +83,4 @@ def generate_factor_matrices(n, m, k, sparsity_degree_in_v=0.5,
     ones = np.ones(m, dtype=np.int)
     D = np.random.binomial(ones, pi_d, size=(n, m))
     X = D * Lambda
-    return X, U, V
+    return X, U, V, labels
