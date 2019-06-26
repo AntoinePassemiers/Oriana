@@ -82,16 +82,16 @@ class SparseGaP(FactorModel):
     def compute_Z_q_expectations(SZ_hat_i, Z_hat_j, Z_exp_logsum_hat, log_U_hat, log_V_hat, S_tilde, S_hat, X):
         SZ_hat_i[:, :] = 0
         Z_hat_j[:, :] = 0
-        Z_exp_logsum_hat[:, :] = 0        
+        Z_exp_logsum_hat[:, :] = 0
         n, p, latent_dim = log_U_hat.shape[0], log_V_hat.shape[0], log_U_hat.shape[1]
         for i in range(n):
             for j in range(p):
                 logsum = log_U_hat[i, :] + log_V_hat[j, :]
-                exp_logsum = np.exp(logsum)
+                exp_logsum = np.exp(logsum) * S_tilde[j, :]
                 den = exp_logsum.sum()
                 den = den if den > 0 else 1
                 for k in range(latent_dim):
-                    expectation = X[i, j] * S_tilde[j, k] * exp_logsum[k] / den
+                    expectation = X[i, j] * exp_logsum[k] / den
                     SZ_hat_i[i, k] += S_hat[j, k] * expectation
                     Z_hat_j[j, k] += expectation
                     Z_exp_logsum_hat[j, k] += expectation * logsum[k]
@@ -100,7 +100,7 @@ class SparseGaP(FactorModel):
 
         # Compute useful metrics based on the expectation of Z_q
         # E[Z_q] is memory-expensive, so it is itself not
-        # explicitely computed.
+        # explicitly computed.
         SZ_hat_i = np.empty((self.n, self.k), dtype=np.float32)
         Z_hat_j = np.empty((self.m, self.k), dtype=np.float32)
         Z_exp_logsum_hat = np.empty((self.m, self.k), dtype=np.float32)
@@ -124,7 +124,7 @@ class SparseGaP(FactorModel):
         self.log_U_hat = self.U_q.meanlog()
 
         # Update parameters of Vprime_q
-        self.b1[:] = self.beta1[np.newaxis, ...] + Z_hat_j
+        self.b1[:] = self.beta1[np.newaxis, ...] + S_hat * Z_hat_j
         self.b2[:] = self.beta2[:] + self.S_hat * self.U_hat.sum(axis=0)
         self.b1[:] = np.maximum(1e-15, np.nan_to_num(self.b1[:]))
         self.b2[:] = np.maximum(1e-15, np.nan_to_num(self.b2[:]))
@@ -134,7 +134,7 @@ class SparseGaP(FactorModel):
         # Update parameters of S_q
         tmp = -Z_exp_logsum_hat
         tmp += np.nan_to_num(self.U_hat.sum(axis=0)[np.newaxis, ...] * self.Vprime_hat)
-        self.p_s[:] = sigmoid(logit(self.pi_s[:])[..., np.newaxis] + tmp)
+        self.p_s[:] = sigmoid(logit(self.pi_s[:])[..., np.newaxis] - tmp)
         self.p_s[:] = np.nan_to_num(self.p_s[:])
         self.p_s[self.pi_s[:] <= 0] = 1e-10
         self.p_s[self.pi_s[:] >= 1] = 1. - 1e-10

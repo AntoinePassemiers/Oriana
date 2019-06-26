@@ -12,7 +12,7 @@ import pandas as pd
 class CountMatrix:
     """Count matrix.
 
-    Element (i, j) gives the number of occurences of 
+    Element (i, j) gives the number of occurrences of
     object j in sample i.
 
     Attributes:
@@ -68,6 +68,7 @@ class CountMatrix:
         Returns:
             :obj:`oriana.CountMatrix`: Count matrix
         """
+        print('Loading from ' + filepath)
         df = pd.read_csv(
                 filepath,
                 sep=delimiter,
@@ -83,7 +84,7 @@ class CountMatrix:
     @property
     def shape(self):
         return self._data.shape
-   
+
     @property
     def col_names(self):
         """Column names.
@@ -101,7 +102,7 @@ class CountMatrix:
             :obj:`np.ndarray`: Array of sample names
         """
         return np.asarray(self._data.index)
-    
+
     def __setitem__(self, key, value):
         self._data[key] = value
 
@@ -110,3 +111,11 @@ class CountMatrix:
 
     def __repr__(self):
         return self._data.__repr__()
+
+    def filter_rows(self, rows, inplace=True):
+        sub_df = self._data.loc[rows]
+        if inplace:
+            self._data = sub_df
+            return self
+        else:
+            return CountMatrix(pd.DataFrame(sub_df))

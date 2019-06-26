@@ -9,7 +9,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 from sklearn.metrics import adjusted_rand_score
-
+from sklearn.preprocessing import LabelEncoder
+from os.path import join
+import pandas as pd
 
 def project_with_sparse_zigap(counts, k=2):
     model = SparseZIGaP(counts, k=k, use_factors=True)
@@ -19,7 +21,7 @@ def project_with_sparse_zigap(counts, k=2):
     for iteration in range(200):
         model.step()
         divergence = model.reconstruction_deviance()
-        print('Iteration %i - Bregman divergence: %f' % (iteration + 1, divergence))
+        print('Iteration %3i - Bregman divergence: %f' % (iteration + 1, divergence))
         if divergence <= best_divergence:
             best_divergence = divergence
             U, V = model.factors()
@@ -29,9 +31,7 @@ def project_with_sparse_zigap(counts, k=2):
     return U, V
 
 
-if __name__ == '__main__':
-
-
+def test_generated():
     # --- Generate random cells and genes ---
 
     zero_inflation_level = 0.5
@@ -56,7 +56,7 @@ if __name__ == '__main__':
     # --- Clustering ---
 
     U, V = project_with_sparse_zigap(counts, k=40)
-    log_U, lo_V = np.log(U), np.log(V)
+    log_U, log_V = np.log(U), np.log(V)
 
     predicted_labels = KMeans(n_clusters=n_groups, n_init=100).fit(log_U).labels_
 
@@ -69,13 +69,41 @@ if __name__ == '__main__':
     # --- Visualization ---
 
     U, V = project_with_sparse_zigap(counts, k=2)
-    log_U, lo_V = np.log(U), np.log(V)
+    log_U, log_V = np.log(U), np.log(V)
+    predicted_labels = KMeans(n_clusters=n_groups, n_init=100).fit(log_U).labels_
 
-    colors = ['salmon', 'blue', 'purple', 'gold']
+    colors = ['salmon', 'steelblue', 'purple', 'gold']
+    markers = ['o', '^', 'x', 'P']
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
     for i in range(n_groups):
-        idx = (labels == i)
-        plt.scatter(log_U[idx, 0], log_U[idx, 1], color=colors[i])
-    plt.title('Projection of synthetic data with Sparse ZIGaP (k=2)')
-    plt.ylabel(r'Factor $\hat{U_2}$')
-    plt.xlabel(r'Factor $\hat{U_1}$')
+        for j in range(n_groups):
+            idx = np.logical_and(labels == i, predicted_labels == j)
+            ax.plot(U[idx, 0], U[idx, 1], color=colors[i], marker=markers[j], label=(i,j), lw=0, ms=8)
+    ax.set_title('Projection of synthetic data with Sparse ZIGaP ($k=2$)')
+    ax.set_ylabel(r'Factor $\widehat{U_2}$')
+    ax.set_xlabel(r'Factor $\widehat{U_1}$')
+    ax.legend()
     plt.show()
+
+def get_data_path(file_name):
+    return join('../../data/', file_name)
+
+
+def test_dataset():
+    counts = CountMatrix.from_csv(get_data_path('llorens.csv'))
+    cells_and_types = pd.read_csv(get_data_path('LlorensBobadilla2015_cells_and_types.csv'))
+    cells_and_types.sort_values('cell')
+    indices = list(set(counts.row_names) & set(cells_and_types['cell']))
+    cells_and_types = cells_and_types[cells_and_types.cell.isin(indices)]
+    counts.filter_rows(indices, inplace=True)
+    labels = LabelEncoder().fit_transform(cells_and_types['type'])
+    assert labels.shape[0] == counts.shape[0], (labels.shape, counts.shape)
+    U, V = project_with_sparse_zigap(counts, k=40)
+    predicted_labels = KMeans(n_clusters=np.unique(labels).shape[0], n_init=100).fit(U).labels_
+    ari = adjusted_rand_score(labels, predicted_labels)
+    print('Adjusted Rand Index:', ari)
+
+if __name__ == '__main__':
+    #test_generated()
+    test_dataset()

@@ -92,25 +92,25 @@ class SparseZIGaP(FactorModel):
     def compute_Z_q_expectations(DSZ_hat, DZ_hat, DZ_exp_logsum_hat, log_U_hat, log_V_hat, S_tilde, S_hat, D_hat, X):
         DSZ_hat[:, :] = 0
         DZ_hat[:, :] = 0
-        DZ_exp_logsum_hat[:, :] = 0        
+        DZ_exp_logsum_hat[:, :] = 0
         n, p, latent_dim = log_U_hat.shape[0], log_V_hat.shape[0], log_U_hat.shape[1]
         for i in range(n):
             for j in range(p):
                 logsum = log_U_hat[i, :] + log_V_hat[j, :]
-                exp_logsum = np.exp(logsum)
+                exp_logsum = np.exp(logsum) * S_tilde[j,:]
                 den = exp_logsum.sum()
                 den = den if den > 0 else 1
                 for k in range(latent_dim):
-                    expectation = X[i, j] * S_tilde[j, k] * exp_logsum[k] / den
+                    expectation = X[i, j] * exp_logsum[k] / den
                     DSZ_hat[i, k] += D_hat[i, j] * S_hat[j, k] * expectation
-                    DZ_hat[j, k] += D_hat[i, k] * expectation
+                    DZ_hat[j, k] += D_hat[i, j] * expectation
                     DZ_exp_logsum_hat[j, k] += D_hat[i, j] * expectation * logsum[k]
 
     def update_variational_parameters(self):
 
         # Compute useful metrics based on the expectation of Z_q
         # E[Z_q] is memory-expensive, so it is itself not
-        # explicitely computed.
+        # explicitly computed.
         DSZ_hat = np.empty((self.n, self.k), dtype=np.float32)
         DZ_hat = np.empty((self.m, self.k), dtype=np.float32)
         DZ_exp_logsum_hat = np.empty((self.m, self.k), dtype=np.float32)
@@ -135,7 +135,7 @@ class SparseZIGaP(FactorModel):
         self.log_U_hat = self.U_q.meanlog()
 
         # Update parameters of Vprime_q
-        self.b1[:] = self.beta1[np.newaxis, ...] + DZ_hat
+        self.b1[:] = self.beta1[np.newaxis, ...] + self.S_hat * DZ_hat
         self.b2[:] = self.beta2[:] + self.S_hat * np.dot(self.D_hat.T, self.U_hat)
         self.b1[:] = np.maximum(1e-15, np.nan_to_num(self.b1[:]))
         self.b2[:] = np.maximum(1e-15, np.nan_to_num(self.b2[:]))
@@ -145,7 +145,7 @@ class SparseZIGaP(FactorModel):
         # Update parameters of S_q
         tmp = -DZ_exp_logsum_hat
         tmp += np.nan_to_num(np.dot(self.D_hat.T, self.U_hat) * self.Vprime_hat)
-        self.p_s[:] = sigmoid(logit(self.pi_s[:])[..., np.newaxis] + tmp)
+        self.p_s[:] = sigmoid(logit(self.pi_s[:])[..., np.newaxis] - tmp)
         self.p_s[:] = np.nan_to_num(self.p_s[:])
         self.p_s[self.pi_s[:] <= 0] = 1e-10
         self.p_s[self.pi_s[:] >= 1] = 1. - 1e-10
