@@ -63,13 +63,15 @@ def generate_v(m, k, sparsity_degree=0.2, beta=80, theta=0.8, n_groups=2):
 
 
 def generate_factor_matrices(n, m, k, sparsity_degree_in_v=0.5,
-                             beta=80, theta=0.8, n_groups=2):
+                             beta=80, theta=0.8, n_groups=2,
+                             zero_inflation_level=0.5):
     U = generate_u(n, k, n_groups=n_groups, theta=theta)
     V = generate_v(m, k, sparsity_degree=sparsity_degree_in_v,
                    beta=beta, theta=theta, n_groups=n_groups)
     Lambda = np.dot(U, V.T)
 
-    pi_d = np.ones(m) * .72 # TODO
+    # Randomly generate dropout probabilities with mean `zero_inflation_level`
+    pi_d = np.random.beta(1., (1. / zero_inflation_level) - 1., size=m)
 
     # Sample Bernoulli distributions
     ones = np.ones(m, dtype=np.int)

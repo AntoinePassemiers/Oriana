@@ -3,7 +3,7 @@
 # author : Antoine Passemiers
 
 from oriana import Dimensions, Parameter
-from oriana.models import FactorModel
+from oriana.models import FactorModel, GaP
 from oriana.nodes import Poisson, Gamma, Bernoulli, Multinomial
 from oriana.utils import inverse_digamma, sigmoid, logit
 from oriana.nodes import Einsum, Multiply, Transpose
@@ -109,7 +109,9 @@ class SparseZIGaP(FactorModel):
 
     def update_variational_parameters(self):
 
-        # Update parameters of Z_q
+        # Compute useful metrics based on the expectation of Z_q
+        # E[Z_q] is memory-expensive, so it is itself not
+        # explicitely computed.
         DSZ_hat = np.empty((self.n, self.k), dtype=np.float32)
         DZ_hat = np.empty((self.m, self.k), dtype=np.float32)
         DZ_exp_logsum_hat = np.empty((self.m, self.k), dtype=np.float32)
@@ -125,20 +127,21 @@ class SparseZIGaP(FactorModel):
                 self.X[:].astype(np.float32))
 
         # Update parameters of U_q
+        V_hat = self.S_hat * self.Vprime_hat
         self.a1[:] = self.alpha1[np.newaxis, ...] + DSZ_hat
-        self.a2[:] = self.alpha2[:] + np.dot(self.D_hat, self.Vprime_hat)
+        self.a2[:] = self.alpha2[:] + np.dot(self.D_hat, V_hat)
         self.U_hat = self.U_q.mean()
         self.log_U_hat = self.U_q.meanlog()
 
         # Update parameters of Vprime_q
-        self.b1[:] = self.beta1[np.newaxis, ...] + self.S_hat * DZ_hat
+        self.b1[:] = self.beta1[np.newaxis, ...] + DZ_hat
         self.b2[:] = self.beta2[:] + self.S_hat * np.dot(self.D_hat.T, self.U_hat)
         self.Vprime_hat = self.Vprime_q.mean()
         self.log_Vprime_hat = self.Vprime_q.meanlog()
 
         # Update parameters of S_q
-        tmp = np.nan_to_num(DZ_exp_logsum_hat)
-        tmp -= np.nan_to_num(np.dot(self.D_hat.T, self.U_hat) * self.Vprime_hat)
+        tmp = -DZ_exp_logsum_hat
+        tmp += np.nan_to_num(np.dot(self.D_hat.T, self.U_hat) * self.Vprime_hat)
         self.p_s[:] = sigmoid(logit(self.pi_s[:])[..., np.newaxis] + tmp)
         self.p_s[:] = np.nan_to_num(self.p_s[:])
         self.p_s[self.pi_s[:] <= 0] = 1e-10
@@ -147,7 +150,7 @@ class SparseZIGaP(FactorModel):
 
         # Update parameters of D_q
         self.p_d[:] = sigmoid(logit(self.pi_d[:])[np.newaxis, ...] \
-                - np.dot(self.U_hat, self.Vprime_hat.T))
+                - np.dot(self.U_hat, V_hat.T))
         self.p_d[:, self.pi_d[:] <= 0] = 1e-10
         self.p_d[:, self.pi_d[:] >= 1] = 1. - 1e-10
         self.p_d[self.X[:] != 0] = 1. - 1e-10

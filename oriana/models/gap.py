@@ -81,7 +81,9 @@ class GaP(FactorModel):
 
     def update_variational_parameters(self):
 
-        # Update parameters of Z_q
+        # Compute useful metrics based on the expectation of Z_q
+        # E[Z_q] is memory-expensive, so it is itself not
+        # explicitely computed.
         Z_hat_i = np.empty((self.n, self.k), dtype=np.float32)
         Z_hat_j = np.empty((self.m, self.k), dtype=np.float32)
         GaP.compute_Z_q_expectations(
