@@ -2,7 +2,7 @@
 # clustering.py
 # author : Antoine Passemiers
 
-from oriana.models import GaP, SparseZIGaP
+from oriana.models import GaP, ZIGaP, SparseZIGaP
 from oriana.singlecell import CountMatrix, generate_factor_matrices
 
 import numpy as np
@@ -21,7 +21,7 @@ if __name__ == '__main__':
     counts = CountMatrix(X)
 
     history = list()
-    model = GaP(counts, k=2, use_factors=True)
+    model = ZIGaP(counts, k=2, use_factors=True)
     best_divergence = model.reconstruction_deviance()
     print('Initial Bregman divergence: %f' % best_divergence)
     history.append(best_divergence)
