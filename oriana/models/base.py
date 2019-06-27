@@ -56,29 +56,29 @@ class FactorModel(metaclass=ABCMeta):
         self.update_prior_hyper_parameters() # M-step
 
     def reconstruction_deviance(self):
-        """
         self.UV[:] = self.X[:]
-        ll_X_given_X = self.X.loglikelihood()
+        self.D[:] = np.round(self.D_hat)
+        mask = self.D[:] == 0
+        assert not mask.all()
+        ll_X_given_X = self.loglikelihood_X()
         self.U[:] = self.U_hat
-        self.V[:] = self.V_hat
+        self.V[:] = self.Vprime_hat * self.S_hat
         self.UV.forward()
-        ll_X_given_UV = self.X.loglikelihood()
+        self.UV[mask] = 0
+        ll_X_given_UV = self.loglikelihood_X()
         return -2. * (ll_X_given_UV - ll_X_given_X)
-        """
-        X = self.X[:]
-        Lambda = self.UV[:]
-        A = np.empty_like(X)
-        #Lambda[Lambda == 0] = 1e-15 # TODO
-        A = np.nan_to_num(X * np.log(X / Lambda))
-        return (A - X + Lambda).sum()
 
     def explained_deviance(self):
+        mask = self.D[:] == 0
+        assert not mask.all()
         self.UV[:] = self.X[:]
-        ll_X_given_X = self.X.loglikelihood()
-        self.UV[:] = self.X[:].mean(axis=1)[..., np.newaxis] # TODO: not sure about the axis
-        ll_X_given_X_mean = self.X.loglikelihood()
+        ll_X_given_X = self.loglikelihood_X()
+        self.UV[:] = self.X[:].mean(axis=0)[np.newaxis, ...]
+        ll_X_given_X_mean = self.loglikelihood_X()
         self.UV.forward()
-        ll_X_given_UV = self.X.loglikelihood()
+        self.UV[mask] = 0
+        ll_X_given_UV = self.loglikelihood_X()
+        assert (ll_X_given_X >= ll_X_given_X_mean).all()
         return (ll_X_given_UV - ll_X_given_X_mean) / (ll_X_given_X - ll_X_given_X_mean)
 
     def frobenius_norm(self):

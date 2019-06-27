@@ -16,7 +16,8 @@ def sigmoid(x):
 
 
 def log(x):
-    return np.log(np.maximum(1e-15, x))
+    tmp = np.maximum(1e-15, x)
+    return np.log(tmp, out=tmp)
 
 
 def factorial(x):

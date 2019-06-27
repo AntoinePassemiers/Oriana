@@ -10,28 +10,38 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
+#ROOT = os.path.dirname(os.path.abspath(__file__))
+ROOT = '../'
 DATA_FOLDER = os.path.join(ROOT, 'data')
 
+def frobenius(X):
+    return np.sqrt((X**2).sum())
 
 if __name__ == '__main__':
 
 
     filepath = os.path.join(DATA_FOLDER, 'llorens.csv')
-    counts = CountMatrix.from_csv(filepath).T
+    counts = CountMatrix.from_csv(filepath)#.T
+    X = counts.as_array()
     print('Shape of X: %s' % str(counts.shape))
 
     history = list()
     model = SparseZIGaP(counts, k=2, use_factors=True)
     best_divergence = model.reconstruction_deviance()
-    print('Initial Bregman divergence: %f' % best_divergence)
-    history.append(best_divergence)
     U, V = model.factors()
+    Lambda = np.dot(U, V.T)
+    kappa = (X*Lambda).sum() / (Lambda**2).sum()
+    print('Initial Bregman divergence: %f' % best_divergence)
+    print('Initial Frobenius distance: %f' % frobenius(X - kappa*Lambda))
+    history.append(best_divergence)
     for iteration in range(50):
-        print(np.round(np.dot(U, V.T)).astype(np.int))
+        Lambda = np.dot(U, V.T)
+        #Lambda = np.round(Lambda).astype(np.int)
+        kappa = (X*Lambda).sum() / (Lambda**2).sum()
         model.step()
         divergence = model.reconstruction_deviance()
-        print('Iteration %i - Bregman divergence: %f' % (iteration + 1, divergence))
+        print('Iteration %3i - Bregman divergence: %f' % (iteration + 1, divergence))
+        print('              - Frobenius distance: %f' % frobenius(X - kappa*Lambda))
 
         if True:#divergence <= best_divergence:
             best_divergence = divergence

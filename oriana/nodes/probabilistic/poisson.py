@@ -19,7 +19,7 @@ class Poisson(ProbabilisticNode):
 
     def __init__(self, l, rel, **kwargs):
         """Constructs a Poisson node.
-        
+
         Parameters:
             l (object): Node or Parameter object representing
                 the average number of event occurences in a fixed
@@ -42,7 +42,7 @@ class Poisson(ProbabilisticNode):
         """
         Parameters:
             l (object): Poisson lambda parameter, or the average
-                number of event occurences in a fixed interval of time.
+                number of event occurrences in a fixed interval of time.
                 Can be either a Parameter or a Node object.
         """
         n = self.n_samples_per_distrib
@@ -62,6 +62,12 @@ class Poisson(ProbabilisticNode):
         return out
 
     def _logp(self, samples, l):
+        assert (l>=0).all()
         l = l.reshape(-1, order='C')
-        logps = -l + samples * log(l) + log(factorial(np.floor(samples)))
-        return logps
+        samples = samples.reshape(-1, order='C')
+        logps = np.empty_like(samples)
+        logps[np.logical_and(samples == 0, l == 0)] = 0
+        logps[np.logical_and(samples > 0, l == 0)] = -1000  # TODO: This is not very clean
+        logps[l > 0] = -l[l > 0] + samples[l > 0] * log(l[l > 0])
+        #logps = -l + samples * log(l) ##- log(factorial(np.floor(samples)))
+        return np.nan_to_num(logps)

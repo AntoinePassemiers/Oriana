@@ -41,6 +41,15 @@ class SparseZIGaP(FactorModel):
         X.buffer = cmatrix.as_array()
         return X
 
+    def loglikelihood_X(self):
+        ret = np.empty_like(self.X[:])
+        Lambda = self.UV[:]
+        pi_d = np.repeat(self.pi_d[np.newaxis, ...], self.X[:].shape[0], axis=0)[self.X[:] == 0]
+        ret[self.X[:] == 0] = np.log(pi_d * np.exp(-Lambda[self.X[:] == 0]) + (1-pi_d))
+        pi_d = np.repeat(self.pi_d[np.newaxis, ...], self.X[:].shape[0], axis=0)[self.X[:] != 0]
+        ret[self.X[:] != 0] = np.log(pi_d) - Lambda[self.X[:] != 0] + self.X[self.X[:] != 0] * np.log(Lambda[self.X[:] != 0])
+        return ret.sum()
+
     def define_variational_distribution(self):
 
         # Initialize node S_q
